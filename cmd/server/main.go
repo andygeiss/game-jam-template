@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 
-	"template/internal/app/adapters/ingres"
-	"template/internal/app/config"
+	"template/internal/server/adapters/ingres"
+	"template/internal/server/config"
 
 	"github.com/andygeiss/cloud-native-utils/logging"
 	"github.com/andygeiss/cloud-native-utils/messaging"
@@ -37,7 +37,7 @@ func main() {
 	srv := security.NewServer(mux)
 	defer srv.Close()
 
-    // Register the server shutdown function on the context done function.
+	// Register the server shutdown function on the context done function.
 	service.RegisterOnContextDone(ctx, func() {
 		srv.Shutdown(context.Background())
 	})

@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-    "template/internal/app/adapters/ingres/ui"
-	"template/internal/app/config"
+	"template/internal/server/adapters/ingres/ui"
+	"template/internal/server/config"
 
 	"github.com/andygeiss/cloud-native-utils/logging"
 	"github.com/andygeiss/cloud-native-utils/security"

@@ -1,5 +1,7 @@
+//go:build js && wasm
+
 package main
 
 func main() {
-	// Your code here
+	select {}
 }

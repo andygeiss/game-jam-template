@@ -3,7 +3,7 @@ package ui
 import (
 	"net/http"
 
-	"template/internal/app/config"
+	"template/internal/server/config"
 
 	"github.com/andygeiss/cloud-native-utils/security"
 	"github.com/andygeiss/cloud-native-utils/templating"
@@ -46,4 +46,3 @@ func ViewIndex(cfg *config.Config, engine *templating.Engine, sessions *security
 		View(engine, "index", data)(w, r)
 	}
 }
-
