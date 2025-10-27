@@ -2,4 +2,5 @@
 .env
 .DS_Store
 bin
+game.wasm
 testdata
