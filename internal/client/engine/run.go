@@ -28,21 +28,17 @@ var (
 	is     []int
 	ws     []float64
 	hs     []float64
-	vxs    []float64
-	vys    []float64
 	xs     []float64
 	ys     []float64
 	zs     []float64
 )
 
 // AddEntity adds a new entity to the engine.
-func AddEntity(state uint64, imgIndex int, w, h, vx, vy, x, y, z float64) {
+func AddEntity(state uint64, imgIndex int, w, h, x, y, z float64) {
 	states = append(states, state)
 	is = append(is, imgIndex)
 	ws = append(ws, w)
 	hs = append(hs, h)
-	vxs = append(vxs, vx)
-	vys = append(vys, vy)
 	xs = append(xs, x)
 	ys = append(ys, y)
 	zs = append(zs, z)
