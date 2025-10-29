@@ -22,8 +22,9 @@ const (
 	// Only alive entities can be updated and rendered.
 	// Only visible entities will be rendered.
 	// Only animated entities will receive frame updates.
-	StateEntityAlive = (1 << iota)
+	StateEntityAlive = uint64(1 << iota)
 	StateEntityAnimated
+	StateEntityAnimatedLoop
 	StateEntityVisible
 )
 
@@ -49,8 +50,9 @@ var (
 	Ys     []float64
 	Zs     []int
 	// Store the animations frames.
-	Fcs []float64 // frame counts.
-	Fos []float64 // frame offsets.
+	Fcs []int     // frame counts.
+	Fos []int     // frame offsets.
+	Fts []float64 // frame times.
 	// draw order-related.
 	drawOrder []int // order of the entities.
 )
@@ -69,6 +71,7 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	Zs = append(Zs, z)
 	Fcs = append(Fcs, 1)
 	Fos = append(Fos, 0)
+	Fts = append(Fts, 0)
 	// Add the current index to the draw order.
 	drawOrder = append(drawOrder, len(States)-1)
 }
@@ -145,6 +148,21 @@ func Run(update func(dt float64)) {
 			// Skip entities without loaded images.
 			if !img.Truthy() {
 				continue
+			}
+			// Update the animation frame if sprite is animated.
+			if States[i]&StateEntityAnimated == StateEntityAnimated {
+				Fts[i] += dt
+				if Fts[i] >= 150 {
+					Fts[i] = 0
+					Fos[i]++
+				}
+				if Fos[i] >= Fcs[i] {
+					Fos[i] = 0
+					// Remove animation state (if not looping).
+					if States[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
+						States[i] &= ^StateEntityAnimated
+					}
+				}
 			}
 			// Calculate the source rectangle coordinates by using sprite position within the image
 			// and the animation frame offset (no animation = offset 0).
