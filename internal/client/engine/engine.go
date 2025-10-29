@@ -3,6 +3,7 @@
 package engine
 
 import (
+	"sort"
 	"syscall/js"
 )
 
@@ -30,8 +31,6 @@ var (
 	// The canvas element and its context will be used to draw.
 	canvas js.Value
 	ctx    js.Value
-	// The number of entities.
-	Entities int
 	// Store the images.
 	images []js.Value
 	// The last timestamp of the animation frame.
@@ -52,6 +51,8 @@ var (
 	// Store the animations frames.
 	Fcs []float64 // frame counts.
 	Fos []float64 // frame offsets.
+	// draw order-related.
+	drawOrder []int // order of the entities.
 )
 
 // AddEntity adds a new entity to the engine.
@@ -68,7 +69,8 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	Zs = append(Zs, z)
 	Fcs = append(Fcs, 1)
 	Fos = append(Fos, 0)
-	Entities++
+	// Add the current index to the draw order.
+	drawOrder = append(drawOrder, len(States)-1)
 }
 
 // LoadImages loads an image from the given path.
@@ -116,42 +118,57 @@ func Run(update func(dt float64)) {
 		update(dt)
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
+		// Sort the entities based on their draw order.
+		sort.SliceStable(drawOrder, func(a, b int) bool {
+			ai := drawOrder[a]
+			bi := drawOrder[b]
+			// Check for lower Z layer first.
+			if Zs[ai] != Zs[bi] {
+				return Zs[ai] < Zs[bi]
+			}
+			// Check for painter's order by bottom edge (Y position + height).
+			// The destination rectangle is centered around the entity's position.
+			// Thus the Y order is a bit tricky because we need to consider
+			// the height of the entity and the position of the entity's center.
+			ya := Ys[ai] + Hs[ai]/2
+			yb := Ys[bi] + Hs[bi]/2
+			if ya != yb {
+				// Draw entities with lower Y coordinate first.
+				return ya < yb
+			}
+			return ai < bi
+		})
 		// Draw the entities (with 4 layers).
 		alphaResetNeeded := false
-		for i := 0; i < 4; i++ {
-			for j := range Entities {
-				if Zs[j] != i {
-					continue
-				}
-				img := images[Iis[j]]
-				if !img.Truthy() {
-					continue
-				}
-				// Calculate the source rectangle coordinates by using sprite position within the image
-				// and the animation frame offset (no animation = offset 0).
-				// Thus we can use spritesheets and tilesets in production and do not need to split sprites
-				// and tiles into multiple images.
-				srcX := float64(Ics[j])*Ws[j] + float64(Fos[j])*Ws[j]
-				srcY := float64(Irs[j]) * Hs[j]
-				// The destination rectangle coordinates are calculated by subtracting half of the width and height
-				// from the entity's position to center the image on the entity.
-				// Thus we use the entity's position as the center point for the image.
-				dstX := Xs[j] - Ws[j]/2
-				dstY := Ys[j] - Hs[j]/2
-				// Set the alpha value for the image if less than 1.
-				if As[j] < 1 {
-					ctx.Set("globalAlpha", As[j])
-					alphaResetNeeded = true
-				}
-				// Draw the image on the canvas (centered).
-				ctx.Call("drawImage", img,
-					srcX, srcY, Ws[j], Hs[j],
-					dstX, dstY, Ws[j], Hs[j])
-				// Reset the alpha value if needed.
-				if alphaResetNeeded {
-					ctx.Set("globalAlpha", 1)
-					alphaResetNeeded = false
-				}
+		for _, i := range drawOrder {
+			img := images[Iis[i]]
+			// Skip entities without loaded images.
+			if !img.Truthy() {
+				continue
+			}
+			// Calculate the source rectangle coordinates by using sprite position within the image
+			// and the animation frame offset (no animation = offset 0).
+			// Thus we can use spritesheets and tilesets in production and do not need to split sprites
+			// and tiles into multiple images.
+			srcX := float64(Ics[i])*Ws[i] + float64(Fos[i])*Ws[i]
+			srcY := float64(Irs[i]) * Hs[i]
+			// Calculate the destination rectangle coordinates by using entity position and size.
+			// The destination rectangle is centered around the entity's position.
+			dstX := Xs[i] - Ws[i]/2
+			dstY := Ys[i] - Hs[i]/2
+			// Set the alpha value for the image if less than 1.
+			if As[i] < 1 {
+				ctx.Set("globalAlpha", As[i])
+				alphaResetNeeded = true
+			}
+			// Draw the image on the canvas (centered).
+			ctx.Call("drawImage", img,
+				srcX, srcY, Ws[i], Hs[i],
+				dstX, dstY, Ws[i], Hs[i])
+			// Reset the alpha value if needed.
+			if alphaResetNeeded {
+				ctx.Set("globalAlpha", 1)
+				alphaResetNeeded = false
 			}
 		}
 		// Call the loop function recursively.

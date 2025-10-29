@@ -8,12 +8,20 @@ import (
 
 func main() {
 	engine.LoadImages("wisp-engine.png")
+	engine.LoadImages("player.png")
 	engine.AddEntity(engine.StateEntityAlive|engine.StateEntityVisible,
 		0, 0, 0,
 		320, 320,
-		engine.CanvasWidth/2, engine.CanvasHeight/2,
-		0,
+		640/2, 360/2,
 		1,
+		0,
+	)
+	engine.AddEntity(engine.StateEntityAlive|engine.StateEntityVisible,
+		1, 0, 0,
+		32, 32,
+		640/2, 360/2+140,
+		1,
+		0,
 	)
 	fadeOut := false
 	engine.Run(func(dt float64) {
