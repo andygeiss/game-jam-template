@@ -40,9 +40,10 @@ var (
 	loopFn js.Func
 	// Store the entities.
 	states []uint64
-	ic     []int     // image col
-	ir     []int     // image row
-	is     []int     // image index
+	as     []float64 // alpha (opacity)
+	ics    []int     // image col
+	irs    []int     // image row
+	iis    []int     // image index
 	ws     []float64 // sprite width
 	hs     []float64 // sprite height
 	xs     []float64
@@ -54,11 +55,12 @@ var (
 )
 
 // AddEntity adds a new entity to the engine.
-func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, z float64) {
+func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, z, alpha float64) {
 	states = append(states, state)
-	is = append(is, imgIndex)
-	ic = append(ic, imgCol)
-	ir = append(ir, imgRow)
+	as = append(as, alpha)
+	iis = append(iis, imgIndex)
+	ics = append(ics, imgCol)
+	irs = append(irs, imgRow)
 	ws = append(ws, w)
 	hs = append(hs, h)
 	xs = append(xs, x)
@@ -116,7 +118,7 @@ func Run(update func(dt float64)) {
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
 		// Draw the entities.
 		for i := range Entities {
-			img := images[is[i]]
+			img := images[iis[i]]
 			if !img.Truthy() {
 				continue
 			}
@@ -124,13 +126,17 @@ func Run(update func(dt float64)) {
 			// and the animation frame offset (no animation = offset 0).
 			// Thus we can use spritesheets and tilesets in production and do not need to split sprites
 			// and tiles into multiple images.
-			srcX := float64(ic[i])*ws[i] + float64(fos[i])*ws[i]
-			srcY := float64(ir[i]) * hs[i]
+			srcX := float64(ics[i])*ws[i] + float64(fos[i])*ws[i]
+			srcY := float64(irs[i]) * hs[i]
 			// The destination rectangle coordinates are calculated by subtracting half of the width and height
 			// from the entity's position to center the image on the entity.
 			// Thus we use the entity's position as the center point for the image.
 			dstX := xs[i] - ws[i]/2
 			dstY := ys[i] - hs[i]/2
+			// Set the alpha value for the image if less than 1.
+			if as[i] < 1 {
+				ctx.Set("globalAlpha", as[i])
+			}
 			// Draw the image on the canvas (centered).
 			ctx.Call("drawImage", img,
 				srcX, srcY, ws[i], hs[i],
