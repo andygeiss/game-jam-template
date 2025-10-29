@@ -117,6 +117,7 @@ func Run(update func(dt float64)) {
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
 		// Draw the entities (with 4 layers).
+		alphaResetNeeded := false
 		for i := 0; i < 4; i++ {
 			for j := range Entities {
 				if Zs[j] != i {
@@ -140,11 +141,17 @@ func Run(update func(dt float64)) {
 				// Set the alpha value for the image if less than 1.
 				if As[j] < 1 {
 					ctx.Set("globalAlpha", As[j])
+					alphaResetNeeded = true
 				}
 				// Draw the image on the canvas (centered).
 				ctx.Call("drawImage", img,
 					srcX, srcY, Ws[j], Hs[j],
 					dstX, dstY, Ws[j], Hs[j])
+				// Reset the alpha value if needed.
+				if alphaResetNeeded {
+					ctx.Set("globalAlpha", 1)
+					alphaResetNeeded = false
+				}
 			}
 		}
 		// Call the loop function recursively.
