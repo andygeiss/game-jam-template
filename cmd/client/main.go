@@ -11,8 +11,9 @@ func main() {
 	engine.AddEntity(engine.StateEntityAlive|engine.StateEntityVisible,
 		0, 0, 0,
 		320, 320,
-		engine.CanvasWidth/2, engine.CanvasHeight/2, 1,
+		engine.CanvasWidth/2, engine.CanvasHeight/2,
 		1.0,
+		1,
 	)
 	engine.Run(func(dt float64) {
 

@@ -48,14 +48,14 @@ var (
 	hs     []float64 // sprite height
 	xs     []float64
 	ys     []float64
-	zs     []float64
+	zs     []int
 	// Store the animations frames.
 	fcs []float64 // frame counts.
 	fos []float64 // frame offsets.
 )
 
 // AddEntity adds a new entity to the engine.
-func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, z, alpha float64) {
+func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) {
 	states = append(states, state)
 	as = append(as, alpha)
 	iis = append(iis, imgIndex)
@@ -116,31 +116,36 @@ func Run(update func(dt float64)) {
 		update(dt)
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
-		// Draw the entities.
-		for i := range Entities {
-			img := images[iis[i]]
-			if !img.Truthy() {
-				continue
+		// Draw the entities (with 4 layers).
+		for i := 0; i < 4; i++ {
+			for j := range Entities {
+				if zs[j] != i {
+					continue
+				}
+				img := images[iis[j]]
+				if !img.Truthy() {
+					continue
+				}
+				// Calculate the source rectangle coordinates by using sprite position within the image
+				// and the animation frame offset (no animation = offset 0).
+				// Thus we can use spritesheets and tilesets in production and do not need to split sprites
+				// and tiles into multiple images.
+				srcX := float64(ics[j])*ws[j] + float64(fos[j])*ws[j]
+				srcY := float64(irs[j]) * hs[j]
+				// The destination rectangle coordinates are calculated by subtracting half of the width and height
+				// from the entity's position to center the image on the entity.
+				// Thus we use the entity's position as the center point for the image.
+				dstX := xs[j] - ws[j]/2
+				dstY := ys[j] - hs[j]/2
+				// Set the alpha value for the image if less than 1.
+				if as[j] < 1 {
+					ctx.Set("globalAlpha", as[j])
+				}
+				// Draw the image on the canvas (centered).
+				ctx.Call("drawImage", img,
+					srcX, srcY, ws[j], hs[j],
+					dstX, dstY, ws[j], hs[j])
 			}
-			// Calculate the source rectangle coordinates by using sprite position within the image
-			// and the animation frame offset (no animation = offset 0).
-			// Thus we can use spritesheets and tilesets in production and do not need to split sprites
-			// and tiles into multiple images.
-			srcX := float64(ics[i])*ws[i] + float64(fos[i])*ws[i]
-			srcY := float64(irs[i]) * hs[i]
-			// The destination rectangle coordinates are calculated by subtracting half of the width and height
-			// from the entity's position to center the image on the entity.
-			// Thus we use the entity's position as the center point for the image.
-			dstX := xs[i] - ws[i]/2
-			dstY := ys[i] - hs[i]/2
-			// Set the alpha value for the image if less than 1.
-			if as[i] < 1 {
-				ctx.Set("globalAlpha", as[i])
-			}
-			// Draw the image on the canvas (centered).
-			ctx.Call("drawImage", img,
-				srcX, srcY, ws[i], hs[i],
-				dstX, dstY, ws[i], hs[i])
 		}
 		// Call the loop function recursively.
 		js.Global().Call("requestAnimationFrame", loopFn)
