@@ -39,35 +39,35 @@ var (
 	// Ensure that the loop function is not garbage collected.
 	loopFn js.Func
 	// Store the entities.
-	states []uint64
-	as     []float64 // alpha (opacity)
-	ics    []int     // image col
-	irs    []int     // image row
-	iis    []int     // image index
-	ws     []float64 // sprite width
-	hs     []float64 // sprite height
-	xs     []float64
-	ys     []float64
-	zs     []int
+	States []uint64
+	As     []float64 // alpha (opacity)
+	Ics    []int     // image col
+	Irs    []int     // image row
+	Iis    []int     // image index
+	Ws     []float64 // sprite width
+	Hs     []float64 // sprite height
+	Xs     []float64
+	Ys     []float64
+	Zs     []int
 	// Store the animations frames.
-	fcs []float64 // frame counts.
-	fos []float64 // frame offsets.
+	Fcs []float64 // frame counts.
+	Fos []float64 // frame offsets.
 )
 
 // AddEntity adds a new entity to the engine.
 func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) {
-	states = append(states, state)
-	as = append(as, alpha)
-	iis = append(iis, imgIndex)
-	ics = append(ics, imgCol)
-	irs = append(irs, imgRow)
-	ws = append(ws, w)
-	hs = append(hs, h)
-	xs = append(xs, x)
-	ys = append(ys, y)
-	zs = append(zs, z)
-	fcs = append(fcs, 1)
-	fos = append(fos, 0)
+	States = append(States, state)
+	As = append(As, alpha)
+	Iis = append(Iis, imgIndex)
+	Ics = append(Ics, imgCol)
+	Irs = append(Irs, imgRow)
+	Ws = append(Ws, w)
+	Hs = append(Hs, h)
+	Xs = append(Xs, x)
+	Ys = append(Ys, y)
+	Zs = append(Zs, z)
+	Fcs = append(Fcs, 1)
+	Fos = append(Fos, 0)
 	Entities++
 }
 
@@ -119,10 +119,10 @@ func Run(update func(dt float64)) {
 		// Draw the entities (with 4 layers).
 		for i := 0; i < 4; i++ {
 			for j := range Entities {
-				if zs[j] != i {
+				if Zs[j] != i {
 					continue
 				}
-				img := images[iis[j]]
+				img := images[Iis[j]]
 				if !img.Truthy() {
 					continue
 				}
@@ -130,21 +130,21 @@ func Run(update func(dt float64)) {
 				// and the animation frame offset (no animation = offset 0).
 				// Thus we can use spritesheets and tilesets in production and do not need to split sprites
 				// and tiles into multiple images.
-				srcX := float64(ics[j])*ws[j] + float64(fos[j])*ws[j]
-				srcY := float64(irs[j]) * hs[j]
+				srcX := float64(Ics[j])*Ws[j] + float64(Fos[j])*Ws[j]
+				srcY := float64(Irs[j]) * Hs[j]
 				// The destination rectangle coordinates are calculated by subtracting half of the width and height
 				// from the entity's position to center the image on the entity.
 				// Thus we use the entity's position as the center point for the image.
-				dstX := xs[j] - ws[j]/2
-				dstY := ys[j] - hs[j]/2
+				dstX := Xs[j] - Ws[j]/2
+				dstY := Ys[j] - Hs[j]/2
 				// Set the alpha value for the image if less than 1.
-				if as[j] < 1 {
-					ctx.Set("globalAlpha", as[j])
+				if As[j] < 1 {
+					ctx.Set("globalAlpha", As[j])
 				}
 				// Draw the image on the canvas (centered).
 				ctx.Call("drawImage", img,
-					srcX, srcY, ws[j], hs[j],
-					dstX, dstY, ws[j], hs[j])
+					srcX, srcY, Ws[j], Hs[j],
+					dstX, dstY, Ws[j], Hs[j])
 			}
 		}
 		// Call the loop function recursively.
