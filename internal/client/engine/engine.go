@@ -29,11 +29,14 @@ const (
 )
 
 var (
+	// Flags to control the engine's behavior.
+	hasPlayerInput bool
 	// The canvas element and its context will be used to draw.
 	canvas js.Value
 	ctx    js.Value
 	// Store the images.
-	images []js.Value
+	images       []js.Value
+	imagesLoaded int
 	// The last timestamp of the animation frame.
 	lastTs float64
 	// Ensure that the loop function is not garbage collected.
@@ -88,6 +91,10 @@ func LoadImages(paths ...string) {
 		// Create a new image element.
 		val := js.Global().Get("Image").New()
 		val.Set("src", "/assets/"+path)
+		val.Set("onload", js.FuncOf(func(this js.Value, args []js.Value) any {
+			imagesLoaded++
+			return nil
+		}))
 		images = append(images, val)
 	}
 }
@@ -121,6 +128,18 @@ func Run(update func(dt float64)) {
 		update(dt)
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
+		// Check if all assets are loaded.
+		allAssetsLoaded := imagesLoaded == len(images)
+		// Skip rendering the entities if not all assets are loaded.
+		if !allAssetsLoaded {
+			ctx.Set("fillStyle", "white")
+			ctx.Set("font", "24px Arial")
+			ctx.Set("textAlign", "center")
+			ctx.Set("textBaseline", "middle")
+			ctx.Call("fillText", "Loading...", CanvasWidth/2, CanvasHeight/2)
+			js.Global().Call("requestAnimationFrame", loopFn)
+			return nil
+		}
 		// Sort the entities based on their draw order.
 		sort.SliceStable(drawOrder, func(a, b int) bool {
 			ai := drawOrder[a]
@@ -190,6 +209,15 @@ func Run(update func(dt float64)) {
 				ctx.Set("globalAlpha", 1)
 				alphaResetNeeded = false
 			}
+		}
+		// Show "Click to start the game" message if there is no player input.
+		// We need a player input to play sound effects (security reason).
+		if !hasPlayerInput {
+			ctx.Set("fillStyle", "white")
+			ctx.Set("font", "24px Arial")
+			ctx.Set("textAlign", "center")
+			ctx.Set("textBaseline", "middle")
+			ctx.Call("fillText", "Click to start the game", CanvasWidth/2, CanvasHeight/2+80)
 		}
 		// Call the loop function recursively.
 		js.Global().Call("requestAnimationFrame", loopFn)
