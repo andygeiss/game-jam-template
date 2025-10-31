@@ -1,14 +1,18 @@
 set dotenv-load
 
 # Build the wasm client and server binary.
-build:
+build: copy
+    @GOOS=js GOARCH=wasm tinygo build -target wasm -opt=z -o bin/game.wasm cmd/client/main.go
+    @wasm-opt -Oz --strip-debug --strip-producers -o bin/game-opt.wasm bin/game.wasm
+    @cp bin/game-opt.wasm cmd/server/assets/game.wasm
+
     @go build \
     -ldflags "-s -w" \
     -o ./bin/server ./cmd/server/main.go
 
-    @GOOS=js GOARCH=wasm tinygo build -target wasm -opt=z -o bin/game.wasm cmd/client/main.go
-    @wasm-opt -Oz --strip-debug --strip-producers -o bin/game-opt.wasm bin/game.wasm
-    @cp bin/game-opt.wasm cmd/server/assets/game.wasm
+# Copy the assets into the server directory.
+copy:
+    @cp assets/*.png cmd/server/assets/
 
 # Run the service.
 run: build

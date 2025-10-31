@@ -13,14 +13,14 @@ func main() {
 	// Add the engine logo and player entity.
 	engine.AddEntity(engine.StateEntityAlive|engine.StateEntityVisible,
 		0, 0, 0,
-		320, 320,
+		160, 160,
 		640/2, 360/2,
 		1,
 		0,
 	)
 	engine.AddEntity(engine.StateEntityAlive|engine.StateEntityVisible,
 		1, 0, 0,
-		32, 32,
+		16, 16,
 		640/2, 360/2+140,
 		1,
 		0,

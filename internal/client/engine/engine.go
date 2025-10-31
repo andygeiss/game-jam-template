@@ -152,10 +152,12 @@ func Run(update func(dt float64)) {
 			// Update the animation frame if sprite is animated.
 			if States[i]&StateEntityAnimated == StateEntityAnimated {
 				Fts[i] += dt
+				// Check if the animation frame has reached the maximum duration of 150 ms.
 				if Fts[i] >= 150 {
 					Fts[i] = 0
 					Fos[i]++
 				}
+				// Check if the animation frame has reached the maximum number of frames.
 				if Fos[i] >= Fcs[i] {
 					Fos[i] = 0
 					// Remove animation state (if not looping).
