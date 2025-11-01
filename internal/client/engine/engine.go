@@ -63,7 +63,8 @@ var (
 	KeyT     bool
 	KeyUp    bool
 	// The last timestamp of the animation frame.
-	lastTs float64
+	lastTs           float64
+	HitStopRemaining float64
 	// Ensure that the loop function is not garbage collected.
 	loopFn js.Func
 	// Mouse input related.
@@ -204,9 +205,18 @@ func Run(updateScene func(dt float64)) {
 		lastTs = now
 		// Record the time since the last toggle.
 		lastToggle += dt
+		// Check if hitstop is active and freeze the game.
+		if HitStopRemaining > 0 {
+			HitStopRemaining -= dt
+			if HitStopRemaining <= 0 {
+				HitStopRemaining = 0
+			}
+			// Freeze during hitstop.
+			dt = 0
+		}
 		// Updates the data and handles the logic.
 		updateScene(dt)
-		// Update the camera position.
+		// Update the camera position and shake even if hitstop is active.
 		updateCamera(dt)
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)

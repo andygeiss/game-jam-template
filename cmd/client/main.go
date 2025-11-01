@@ -33,12 +33,15 @@ func main() {
 	engine.Run(func(dt float64) {
 		// Apply camera shake when key 1 is pressed.
 		if engine.Key1 {
-			engine.CamShakeMagnitude = 4
-			engine.CamShakeTime = 150
+			engine.CamShakeMagnitude = 2.5
+			engine.CamShakeTime = 150 // big finisher: 150-200, light hits: 40-70
 		}
 		// Play the title sound if it's not already playing.
 		if engine.Key2 {
-			engine.PlaySound(0, 1.0, true)
+			engine.PlaySound(0, 0.25, true)
+		}
+		if engine.Key3 {
+			engine.HitStopRemaining = 100
 		}
 	})
 	// Prevent the Go runtime from exiting.
