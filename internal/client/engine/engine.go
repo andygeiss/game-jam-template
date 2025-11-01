@@ -3,6 +3,7 @@
 package engine
 
 import (
+	"math/rand/v2"
 	"sort"
 	"syscall/js"
 )
@@ -29,18 +30,47 @@ const (
 )
 
 var (
-	// Flags to control the engine's behavior.
-	hasPlayerInput bool
-	// The canvas element and its context will be used to draw.
+	// Control a 2D camera.
+	camBoundsSet         bool
+	camX, camY           float64
+	camMinX, camMinY     float64
+	camMaxX, camMaxY     float64
+	camShakeX, camShakeY float64
+	CamShakeMagnitude    float64
+	CamShakeTime         float64
+	CamTarget            int // -1 no target
+	// canvas and ctx will be used to draw.
+	// doc will be used to access the document.
 	canvas js.Value
 	ctx    js.Value
+	doc    js.Value
+	// Flags to control the engine's behavior.
+	hasPlayerInput bool
+	lastToggle     float64
 	// Store the images.
 	images       []js.Value
 	imagesLoaded int
+	// Key input related.
+	Key1     bool
+	Key2     bool
+	Key3     bool
+	Key4     bool
+	KeyDown  bool
+	KeyE     bool
+	KeyLeft  bool
+	KeyQ     bool
+	KeyR     bool
+	KeyRight bool
+	KeyT     bool
+	KeyUp    bool
 	// The last timestamp of the animation frame.
 	lastTs float64
 	// Ensure that the loop function is not garbage collected.
 	loopFn js.Func
+	// Mouse input related.
+	MouseDown bool
+	MouseX    float64
+	MouseY    float64
 	// Store the entities.
 	States []uint64
 	As     []float64 // alpha (opacity)
@@ -83,14 +113,15 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 func LoadImages(paths ...string) {
 	for _, path := range paths {
 		// Check if the image is already stored.
+		fullPath := "/assets/" + path
 		for _, img := range images {
-			if img.Get("src").String() == path {
+			if img.Get("src").String() == fullPath {
 				return
 			}
 		}
 		// Create a new image element.
 		val := js.Global().Get("Image").New()
-		val.Set("src", "/assets/"+path)
+		val.Set("src", fullPath)
 		val.Set("onload", js.FuncOf(func(this js.Value, args []js.Value) any {
 			imagesLoaded++
 			return nil
@@ -102,7 +133,7 @@ func LoadImages(paths ...string) {
 // Run initializes the engine and starts the main loop.
 func Run(update func(dt float64)) {
 	// Create a few shortcuts.
-	doc := js.Global().Get("document")
+	doc = js.Global().Get("document")
 	perf := js.Global().Get("performance")
 	// Initialize the canvas element first.
 	canvas = doc.Call("createElement", "canvas")
@@ -115,6 +146,58 @@ func Run(update func(dt float64)) {
 	ctx = canvas.Call("getContext", "2d")
 	// Initialize the last timestamp of the animation frame.
 	lastTs = perf.Call("now").Float()
+	// Set the camera target entity to index -1 initially (none).
+	CamTarget = -1
+	SetWorldSize(CanvasWidth, CanvasHeight)
+	// Add event listeners for each event type.
+	events := []string{"keydown", "keyup", "mousedown", "mousemove", "mouseup"}
+	for _, e := range events {
+		event := e
+		target := js.Global()
+		// Ensure that the mouse event listener is added to the canvas element.
+		if event == "mousedown" || event == "mousemove" || event == "mouseup" {
+			target = canvas
+		}
+		target.Call("addEventListener", event, js.FuncOf(func(this js.Value, args []js.Value) any {
+			// Important: We cannot play audio until the user has interacted once.
+			// Thus we use this flag later to determine if we can play audio.
+			if event == "keydown" || event == "mousedown" && !hasPlayerInput {
+				hasPlayerInput = true
+			}
+			// Handle the event based on its type.
+			switch event {
+			case "keydown":
+				key := args[0].Get("key").String()
+				// Toggle fullscreen mode if the user presses the F key.
+				if key == "f" || key == "F" {
+					toggleFullscreen()
+				}
+				handleKeys(key, true)
+			case "keyup":
+				key := args[0].Get("key").String()
+				handleKeys(key, false)
+			case "mousedown":
+				MouseDown = true
+			case "mousemove":
+				// Calculate the mouse position relative to the canvas.
+				rect := canvas.Call("getBoundingClientRect")
+				scaleX := float64(CanvasWidth) / rect.Get("width").Float()
+				scaleY := float64(CanvasHeight) / rect.Get("height").Float()
+				mx := (args[0].Get("clientX").Float() - rect.Get("left").Float()) * scaleX
+				my := (args[0].Get("clientY").Float() - rect.Get("top").Float()) * scaleY
+				// Calculate the mouse position relative to the world event with shake.
+				MouseX = mx + camX - camShakeX
+				MouseY = my + camY - camShakeY
+			case "mouseup":
+				MouseDown = false
+			}
+			// Prevent default behavior.
+			if args != nil && args[0].Truthy() {
+				args[0].Call("preventDefault")
+			}
+			return nil
+		}))
+	}
 	// Ensure that the loop function is not garbage collected.
 	loopFn = js.FuncOf(func(this js.Value, args []js.Value) any {
 		now := perf.Call("now").Float()
@@ -124,8 +207,62 @@ func Run(update func(dt float64)) {
 			dt = 50
 		}
 		lastTs = now
+		// Record the time since the last toggle.
+		lastToggle += dt
 		// Updates the data and handles the logic.
 		update(dt)
+		// Updates the camera position.
+		width, height := float64(CanvasWidth), float64(CanvasHeight)
+		// Center the camera on the target if it exists.
+		if CamTarget >= 0 {
+			targetX := Xs[CamTarget]
+			targetY := Ys[CamTarget]
+			camX = targetX - width/2.0
+			camY = targetY - height/2.0
+		}
+		// Ensure the camera position is within bounds.
+		if camBoundsSet {
+			worldW := camMaxX - camMinX
+			worldH := camMaxY - camMinY
+			// If the world is smaller than the view, center the world in the view.
+			// Center the camera X.
+			if worldW <= width {
+				camX = camMinX + (worldW-width)/2.0
+			} else {
+				min := camMinX
+				max := camMaxX - width
+				if camX < min {
+					camX = min
+				}
+				if camX > max {
+					camX = max
+				}
+			}
+			// Center the camera Y.
+			if worldH <= height {
+				camY = camMinY + (worldH-height)/2.0
+			} else {
+				min := camMinY
+				max := camMaxY - height
+				if camY < min {
+					camY = min
+				}
+				if camY > max {
+					camY = max
+				}
+			}
+		}
+		// Apply shake effect if active.
+		if CamShakeTime > 0 {
+			CamShakeTime -= dt
+			// Center to [-1, 1], scale by magnitude.
+			camShakeX = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
+			camShakeY = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
+		} else { // Or remove shake effect if shake time is 0.
+			camShakeX, camShakeY = 0, 0
+			CamShakeMagnitude = 0
+			CamShakeTime = 0
+		}
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
 		// Check if all assets are loaded.
@@ -140,6 +277,13 @@ func Run(update func(dt float64)) {
 			js.Global().Call("requestAnimationFrame", loopFn)
 			return nil
 		}
+		// Get the camera position and shake values.
+		// This will be used to calculate the visible entities
+		// and apply the camera transform.
+		ox := -camX + camShakeX
+		oy := -camY + camShakeY
+		ctx.Call("save")
+		ctx.Call("translate", ox, oy)
 		// Sort the entities based on their draw order.
 		sort.SliceStable(drawOrder, func(a, b int) bool {
 			ai := drawOrder[a]
@@ -210,6 +354,8 @@ func Run(update func(dt float64)) {
 				alphaResetNeeded = false
 			}
 		}
+		// Undo the camera transform to display UI elements.
+		ctx.Call("restore")
 		// Show "Click to start the game" message if there is no player input.
 		// We need a player input to play sound effects (security reason).
 		if !hasPlayerInput {
@@ -224,4 +370,82 @@ func Run(update func(dt float64)) {
 		return nil
 	})
 	js.Global().Call("requestAnimationFrame", loopFn)
+}
+
+// SetWorldSize sets the world size.
+func SetWorldSize(width, height float64) {
+	camMinX = 0
+	camMinY = 0
+	camMaxX = width
+	camMaxY = height
+	camBoundsSet = true
+}
+
+// handleKeys handles key events.
+func handleKeys(key string, isDown bool) {
+	switch key {
+	case "1":
+		Key1 = isDown
+	case "2":
+		Key2 = isDown
+	case "3":
+		Key3 = isDown
+	case "4":
+		Key4 = isDown
+	case "w", "W":
+		KeyUp = isDown
+	case "s", "S":
+		KeyDown = isDown
+	case "a", "A":
+		KeyLeft = isDown
+	case "d", "D":
+		KeyRight = isDown
+	case "q", "Q":
+		KeyQ = isDown
+	case "e", "E":
+		KeyE = isDown
+	case "r", "R":
+		KeyR = isDown
+	case "t", "T":
+		KeyT = isDown
+	}
+}
+
+// isFullscreen checks if the canvas is in fullscreen mode.
+func isFullscreen() bool {
+	// Check if the fullscreen element is the canvas element.
+	fullscreen := doc.Get("fullscreenElement")
+	if fullscreen.Truthy() && fullscreen.Equal(canvas) {
+		return true
+	}
+	webkitFullscreenElement := doc.Get("webkitFullscreenElement")
+	if webkitFullscreenElement.Truthy() && webkitFullscreenElement.Equal(canvas) {
+		return true
+	}
+	return false
+}
+
+// toggleFullscreen toggles the fullscreen mode of the engine.
+func toggleFullscreen() {
+	// Skip if the last toggle was too recent.
+	if lastToggle <= 500 {
+		return
+	}
+	if isFullscreen() {
+		// Exit fullscreen mode using the standard API.
+		if doc.Get("exitFullscreen").Truthy() {
+			doc.Call("exitFullscreen")
+		} else if doc.Get("webkitExitFullscreen").Truthy() { // Safari
+			doc.Call("webkitExitFullscreen")
+		}
+	} else {
+		// Use the standard API if available.
+		if canvas.Get("requestFullscreen").Truthy() {
+			canvas.Call("requestFullscreen")
+		} else if canvas.Get("webkitRequestFullscreen").Truthy() { // Safari
+			canvas.Call("webkitRequestFullscreen")
+		}
+	}
+	// Ensure to reset the last toggle time.
+	lastToggle = 0
 }

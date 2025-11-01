@@ -29,21 +29,12 @@ func main() {
 	// and make it loop (does not end - will be animated indefinitely).
 	engine.States[1] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
 	engine.Fcs[1] = 4
-	// Run the game loop by fading in and out the background image.
-	fadeOut := false
+	// Start the game loop.
 	engine.Run(func(dt float64) {
-		if fadeOut {
-			engine.As[0] -= dt / 1000
-			if engine.As[0] < 0 {
-				engine.As[0] = 0
-				fadeOut = false
-			}
-		} else {
-			engine.As[0] += dt / 1000
-			if engine.As[0] > 1 {
-				engine.As[0] = 1
-				fadeOut = true
-			}
+		// Apply camera shake when key 1 is pressed.
+		if engine.Key1 {
+			engine.CamShakeMagnitude = 4
+			engine.CamShakeTime = 150
 		}
 	})
 	// Prevent the Go runtime from exiting.
