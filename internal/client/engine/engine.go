@@ -20,7 +20,6 @@ const (
 const (
 	// An entity has different states which determine its behavior.
 	// The engine uses these states to provide basic functionality.
-	// Only alive entities can be updated and rendered.
 	// Only visible entities will be rendered.
 	// Only animated entities will receive frame updates.
 	StateEntityAnimated = uint64(1 << iota)
