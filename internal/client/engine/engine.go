@@ -270,7 +270,7 @@ func SetWorldSize(width, height float64) {
 
 // SetSoundVolume sets the volume of a sound effect.
 func SetSoundVolume(index int, volume float64) {
-	sounds[index].Call("setVolume", volume)
+	sounds[index].Set("volume", volume)
 }
 
 // addEventListeners adds event listeners for each event type.
