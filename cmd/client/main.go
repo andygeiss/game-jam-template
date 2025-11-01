@@ -8,17 +8,17 @@ import (
 
 func main() {
 	// Load the assets.
-	engine.LoadImages("wisp-engine.png")
-	engine.LoadImages("player.png")
+	engine.LoadImages("wisp-engine.png", "player.png")
+	engine.LoadSounds("title.ogg")
 	// Add the engine logo and player entity.
-	engine.AddEntity(engine.StateEntityAlive|engine.StateEntityVisible,
+	engine.AddEntity(engine.StateEntityVisible,
 		0, 0, 0,
 		160, 160,
 		640/2, 360/2,
 		1,
 		0,
 	)
-	engine.AddEntity(engine.StateEntityAlive|engine.StateEntityVisible,
+	engine.AddEntity(engine.StateEntityVisible,
 		1, 0, 0,
 		16, 16,
 		640/2, 360/2+140,
@@ -35,6 +35,10 @@ func main() {
 		if engine.Key1 {
 			engine.CamShakeMagnitude = 4
 			engine.CamShakeTime = 150
+		}
+		// Play the title sound if it's not already playing.
+		if engine.Key2 {
+			engine.PlaySound(0)
 		}
 	})
 	// Prevent the Go runtime from exiting.

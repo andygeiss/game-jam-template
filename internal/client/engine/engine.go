@@ -70,6 +70,9 @@ var (
 	MouseDown bool
 	MouseX    float64
 	MouseY    float64
+	// Store the sounds.
+	sounds       []js.Value
+	soundsLoaded int
 	// Store the entities.
 	States []uint64
 	As     []float64 // alpha (opacity)
@@ -129,6 +132,34 @@ func LoadImages(paths ...string) {
 	}
 }
 
+// LoadSounds loads a sound from the given path.
+// Checks if the sound is already stored.
+// If not, creates a new audio element.
+func LoadSounds(paths ...string) {
+	for _, path := range paths {
+		fullPath := "/assets/" + path
+		for _, sound := range sounds {
+			if sound.Get("src").String() == fullPath {
+				return
+			}
+		}
+		val := js.Global().Get("Audio").New()
+		val.Set("src", fullPath)
+		val.Set("oncanplaythrough", js.FuncOf(func(this js.Value, args []js.Value) any {
+			soundsLoaded++
+			return nil
+		}))
+		sounds = append(sounds, val)
+	}
+}
+
+// PlaySound plays a sound from the given index.
+func PlaySound(index int) {
+	if sounds[index].Get("paused").Bool() {
+		sounds[index].Call("play")
+	}
+}
+
 // Run initializes the engine and starts the main loop.
 func Run(updateScene func(dt float64)) {
 	// Create a few shortcuts.
@@ -168,7 +199,7 @@ func Run(updateScene func(dt float64)) {
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
 		// Check if all assets are loaded.
-		allAssetsLoaded := imagesLoaded == len(images)
+		allAssetsLoaded := imagesLoaded == len(images) && soundsLoaded == len(sounds)
 		// Skip rendering the entities if not all assets are loaded.
 		if !allAssetsLoaded {
 			ctx.Set("fillStyle", "white")
