@@ -25,10 +25,10 @@ func main() {
 		1,
 		0,
 	)
-	// Make an animation by using 4 frames with a duration of 150 ms each frame
-	// and make it loop (does not end - will be animated indefinitely).
+	// Make an animation by using 8 frames with a duration of 125 ms each frame.
+	// This is handled by the engine under the hood.
+	// Thus we only need to set the state.
 	engine.States[1] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
-	engine.Fcs[1] = 4
 	// Start the game loop.
 	engine.Run(func(dt float64) {
 		// Apply camera shake when key 1 is pressed.

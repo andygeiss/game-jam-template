@@ -9,6 +9,11 @@ import (
 )
 
 const (
+	// Wisp uses animations with 8 frames and a duration of 125 ms.
+	// It provides a simple and efficient way to create animations.
+	// It is a sweet spot between smoothness and performance.
+	AnimationFrameCount    = 8
+	AnimationFrameDuration = 125
 	// A canvas size of 640x360 is often used for pixel art games.
 	// This resolution can be easily scaled up or down without losing quality.
 	// We use some default constants here to make the implementation simpler.
@@ -85,7 +90,6 @@ var (
 	Ys     []float64
 	Zs     []int
 	// Store the animations frames.
-	Fcs []int     // frame counts.
 	Fos []int     // frame offsets.
 	Fts []float64 // frame times.
 	// draw order-related.
@@ -104,7 +108,6 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	Xs = append(Xs, x)
 	Ys = append(Ys, y)
 	Zs = append(Zs, z)
-	Fcs = append(Fcs, 1)
 	Fos = append(Fos, 0)
 	Fts = append(Fts, 0)
 	// Add the current index to the draw order.
@@ -399,13 +402,13 @@ func renderEntities(dt float64) {
 		// Update the animation frame if sprite is animated.
 		if States[i]&StateEntityAnimated == StateEntityAnimated {
 			Fts[i] += dt
-			// Check if the animation frame has reached the maximum duration of 150 ms.
-			if Fts[i] >= 150 {
+			// Check if the animation frame has reached the maximum duration of 125 ms.
+			if Fts[i] >= AnimationFrameDuration {
 				Fts[i] = 0
 				Fos[i]++
 			}
 			// Check if the animation frame has reached the maximum number of frames.
-			if Fos[i] >= Fcs[i] {
+			if Fos[i] >= AnimationFrameCount {
 				Fos[i] = 0
 				// Remove animation state (if not looping).
 				if States[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
