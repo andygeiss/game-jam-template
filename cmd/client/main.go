@@ -38,7 +38,7 @@ func main() {
 		}
 		// Play the title sound if it's not already playing.
 		if engine.Key2 {
-			engine.PlaySound(0)
+			engine.PlaySound(0, 1.0, true)
 		}
 	})
 	// Prevent the Go runtime from exiting.

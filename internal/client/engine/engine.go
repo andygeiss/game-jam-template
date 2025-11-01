@@ -154,9 +154,21 @@ func LoadSounds(paths ...string) {
 }
 
 // PlaySound plays a sound from the given index.
-func PlaySound(index int) {
+func PlaySound(index int, volume float64, loop bool) {
 	if sounds[index].Get("paused").Bool() {
+		if loop {
+			sounds[index].Set("loop", true)
+		}
+		sounds[index].Set("volume", volume)
 		sounds[index].Call("play")
+	}
+}
+
+// StopSound stops a sound from the given index.
+func StopSound(index int) {
+	if !sounds[index].Get("paused").Bool() {
+		sounds[index].Set("currentTime", 0)
+		sounds[index].Call("pause")
 	}
 }
 
@@ -244,6 +256,11 @@ func SetWorldSize(width, height float64) {
 	camMaxX = width
 	camMaxY = height
 	camBoundsSet = true
+}
+
+// SetSoundVolume sets the volume of a sound effect.
+func SetSoundVolume(index int, volume float64) {
+	sounds[index].Call("setVolume", volume)
 }
 
 // addEventListeners adds event listeners for each event type.
