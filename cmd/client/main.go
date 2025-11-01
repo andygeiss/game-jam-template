@@ -8,8 +8,8 @@ import (
 
 func main() {
 	// Load the assets.
-	engine.LoadImages("wisp-engine.png", "player.png")
-	engine.LoadSounds("title.ogg")
+	engine.LoadImages("/assets/wisp-engine.png", "/assets/player.png")
+	engine.LoadSounds("/assets/title.ogg")
 	// Add the engine logo and player entity.
 	engine.AddEntity(engine.StateEntityVisible,
 		0, 0, 0,
