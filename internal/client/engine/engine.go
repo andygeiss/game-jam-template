@@ -166,9 +166,7 @@ func LoadSounds(paths ...string) {
 // PlaySound plays a sound from the given index.
 func PlaySound(index int, volume float64, loop bool) {
 	if sounds[index].Get("paused").Bool() {
-		if loop {
-			sounds[index].Set("loop", true)
-		}
+		sounds[index].Set("loop", loop)
 		sounds[index].Set("volume", volume)
 		sounds[index].Call("play")
 	}
