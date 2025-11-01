@@ -407,7 +407,6 @@ func renderEntities(dt float64) {
 	vLeft, vTop := camX-camShakeX, camY-camShakeY
 	vRight, vBottom := vLeft+vw, vTop+vh
 	// Draw the entities with Z+Y sorting.
-	alphaResetNeeded := false
 	alpha := 1.0
 	for _, i := range drawOrder {
 		img := images[Iis[i]]
@@ -450,19 +449,12 @@ func renderEntities(dt float64) {
 		// Set the alpha value for the image if less than 1.
 		if As[i] != alpha {
 			ctx.Set("globalAlpha", As[i])
-			alphaResetNeeded = true
 			alpha = As[i]
 		}
 		// Draw the image on the canvas (centered).
 		ctx.Call("drawImage", img,
 			srcX, srcY, Ws[i], Hs[i],
 			dstX, dstY, Ws[i], Hs[i])
-		// Reset the alpha value if needed.
-		if alphaResetNeeded {
-			ctx.Set("globalAlpha", 1.0)
-			alpha = 1.0
-			alphaResetNeeded = false
-		}
 	}
 }
 
