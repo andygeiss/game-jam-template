@@ -188,6 +188,7 @@ func Run(updateScene func(dt float64)) {
 	ctx = canvas.Call("getContext", "2d")
 	// Initialize the last timestamp of the animation frame.
 	lastTs = perf.Call("now").Float()
+	lastToggle = lastTs
 	// Set the camera target entity to index -1 initially (none).
 	CamTarget = -1
 	SetWorldSize(CanvasWidth, CanvasHeight)
