@@ -3,7 +3,7 @@
 package engine
 
 import (
-	"math/rand/v2"
+	"math/rand"
 	"sort"
 	"syscall/js"
 )
@@ -44,7 +44,7 @@ var (
 	doc    js.Value
 	// Flags to control the engine's behavior.
 	hasPlayerInput bool
-	lastToggle     float64
+	lastToggleMs   float64
 	// Store the images.
 	images       []js.Value
 	imagesLoaded int
@@ -112,23 +112,10 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 }
 
 // LoadImages loads an image from the given path.
-// Checks if the image is already stored.
-// If not, creates a new image element.
 func LoadImages(paths ...string) {
 	for _, path := range paths {
-		fullPath := "/assets/" + path
-		found := false
-		for _, img := range images {
-			if img.Get("src").String() == fullPath {
-				found = true
-				break
-			}
-		}
-		if found {
-			continue
-		}
 		val := js.Global().Get("Image").New()
-		val.Set("src", fullPath)
+		val.Set("src", path)
 		val.Set("onload", js.FuncOf(func(this js.Value, args []js.Value) any {
 			imagesLoaded++
 			return nil
@@ -138,23 +125,10 @@ func LoadImages(paths ...string) {
 }
 
 // LoadSounds loads a sound from the given path.
-// Checks if the sound is already stored.
-// If not, creates a new audio element.
 func LoadSounds(paths ...string) {
 	for _, path := range paths {
-		fullPath := "/assets/" + path
-		found := false
-		for _, sound := range sounds {
-			if sound.Get("src").String() == fullPath {
-				found = true
-				break
-			}
-		}
-		if found {
-			continue
-		}
 		val := js.Global().Get("Audio").New()
-		val.Set("src", fullPath)
+		val.Set("src", path)
 		val.Set("oncanplaythrough", js.FuncOf(func(this js.Value, args []js.Value) any {
 			soundsLoaded++
 			return nil
@@ -181,6 +155,7 @@ func StopSound(index int) {
 }
 
 // Run initializes the engine and starts the main loop.
+// This function is called every frame with the delta time (in ms).
 func Run(updateScene func(dt float64)) {
 	// Create a few shortcuts.
 	doc = js.Global().Get("document")
@@ -196,7 +171,7 @@ func Run(updateScene func(dt float64)) {
 	ctx = canvas.Call("getContext", "2d")
 	// Initialize the last timestamp of the animation frame.
 	lastTs = perf.Call("now").Float()
-	lastToggle = lastTs
+	lastToggleMs = lastTs
 	// Set the camera target entity to index -1 initially (none).
 	CamTarget = -1
 	SetWorldSize(CanvasWidth, CanvasHeight)
@@ -212,7 +187,7 @@ func Run(updateScene func(dt float64)) {
 		}
 		lastTs = now
 		// Record the time since the last toggle.
-		lastToggle += dt
+		lastToggleMs += dt
 		// Check if hitstop is active and freeze the game.
 		if HitStopRemaining > 0 {
 			HitStopRemaining -= dt
@@ -459,7 +434,7 @@ func renderEntities(dt float64) {
 // toggleFullscreen toggles the fullscreen mode of the engine.
 func toggleFullscreen() {
 	// Skip if the last toggle was too recent.
-	if lastToggle <= 500 {
+	if lastToggleMs <= 500 {
 		return
 	}
 	if isFullscreen() {
@@ -478,7 +453,7 @@ func toggleFullscreen() {
 		}
 	}
 	// Ensure to reset the last toggle time.
-	lastToggle = 0
+	lastToggleMs = 0
 }
 
 // updateCamera updates the camera position.
