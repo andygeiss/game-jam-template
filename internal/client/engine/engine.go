@@ -295,7 +295,7 @@ func addEventListeners() {
 		target.Call("addEventListener", event, js.FuncOf(func(this js.Value, args []js.Value) any {
 			// Important: We cannot play audio until the user has interacted once.
 			// Thus we use this flag later to determine if we can play audio.
-			if event == "keydown" || event == "mousedown" && !hasPlayerInput {
+			if (event == "keydown" || event == "mousedown") && !hasPlayerInput {
 				hasPlayerInput = true
 			}
 			// Handle the event based on its type.
