@@ -450,6 +450,7 @@ func renderEntities(dt float64) {
 		// Reset the alpha value if needed.
 		if alphaResetNeeded {
 			ctx.Set("globalAlpha", 1.0)
+			alpha = 1.0
 			alphaResetNeeded = false
 		}
 	}
