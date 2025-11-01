@@ -23,8 +23,7 @@ const (
 	// Only alive entities can be updated and rendered.
 	// Only visible entities will be rendered.
 	// Only animated entities will receive frame updates.
-	StateEntityAlive = uint64(1 << iota)
-	StateEntityAnimated
+	StateEntityAnimated = uint64(1 << iota)
 	StateEntityAnimatedLoop
 	StateEntityVisible
 )
@@ -351,8 +350,9 @@ func renderEntities(dt float64) {
 		// The destination rectangle is centered around the entity's position.
 		dstX := Xs[i] - Ws[i]/2
 		dstY := Ys[i] - Hs[i]/2
-		// Skip entities outside the viewport.
-		if dstX+Ws[i] < vLeft || dstX > vRight || dstY+Hs[i] < vTop || dstY > vBottom {
+		// Skip entities outside the viewport or which are explicitly invisible.
+		if (dstX+Ws[i] < vLeft || dstX > vRight || dstY+Hs[i] < vTop || dstY > vBottom) ||
+			States[i]&StateEntityVisible != StateEntityVisible {
 			continue
 		}
 		// Update the animation frame if sprite is animated.
