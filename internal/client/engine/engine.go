@@ -110,16 +110,16 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 }
 
 // LoadImages loads an image from the given path.
+// Checks if the image is already stored.
+// If not, creates a new image element.
 func LoadImages(paths ...string) {
 	for _, path := range paths {
-		// Check if the image is already stored.
 		fullPath := "/assets/" + path
 		for _, img := range images {
 			if img.Get("src").String() == fullPath {
 				return
 			}
 		}
-		// Create a new image element.
 		val := js.Global().Get("Image").New()
 		val.Set("src", fullPath)
 		val.Set("onload", js.FuncOf(func(this js.Value, args []js.Value) any {
@@ -131,7 +131,7 @@ func LoadImages(paths ...string) {
 }
 
 // Run initializes the engine and starts the main loop.
-func Run(update func(dt float64)) {
+func Run(updateScene func(dt float64)) {
 	// Create a few shortcuts.
 	doc = js.Global().Get("document")
 	perf := js.Global().Get("performance")
@@ -149,6 +149,74 @@ func Run(update func(dt float64)) {
 	// Set the camera target entity to index -1 initially (none).
 	CamTarget = -1
 	SetWorldSize(CanvasWidth, CanvasHeight)
+	// Add event listeners for keyboard and mouse events.
+	addEventListeners()
+	// Ensure that the loop function is not garbage collected.
+	loopFn = js.FuncOf(func(this js.Value, args []js.Value) any {
+		now := perf.Call("now").Float()
+		dt := now - lastTs
+		// Limit the maximum delta time to 50 milliseconds.
+		if dt > 50 {
+			dt = 50
+		}
+		lastTs = now
+		// Record the time since the last toggle.
+		lastToggle += dt
+		// Updates the data and handles the logic.
+		updateScene(dt)
+		// Update the camera position.
+		updateCamera(dt)
+		// Clear the canvas.
+		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
+		// Check if all assets are loaded.
+		allAssetsLoaded := imagesLoaded == len(images)
+		// Skip rendering the entities if not all assets are loaded.
+		if !allAssetsLoaded {
+			ctx.Set("fillStyle", "white")
+			ctx.Set("font", "24px Arial")
+			ctx.Set("textAlign", "center")
+			ctx.Set("textBaseline", "middle")
+			ctx.Call("fillText", "Loading...", CanvasWidth/2, CanvasHeight/2)
+			js.Global().Call("requestAnimationFrame", loopFn)
+			return nil
+		}
+		// Get the camera position and shake values.
+		// This will be used to calculate the visible entities
+		// and apply the camera transform.
+		ox := -camX + camShakeX
+		oy := -camY + camShakeY
+		ctx.Call("save")
+		ctx.Call("translate", ox, oy)
+		// Render the entities on the canvas.
+		renderEntities(dt)
+		// Undo the camera transform to display UI elements.
+		ctx.Call("restore")
+		// Show "Click to start the game" message if there is no player input.
+		// We need a player input to play sound effects (security reason).
+		if !hasPlayerInput {
+			ctx.Set("fillStyle", "white")
+			ctx.Set("font", "24px Arial")
+			ctx.Set("textAlign", "center")
+			ctx.Set("textBaseline", "middle")
+			ctx.Call("fillText", "Click to start the game", CanvasWidth/2, CanvasHeight/2+80)
+		}
+		// Call the loop function recursively.
+		js.Global().Call("requestAnimationFrame", loopFn)
+		return nil
+	})
+	js.Global().Call("requestAnimationFrame", loopFn)
+}
+
+// SetWorldSize sets the world size.
+func SetWorldSize(width, height float64) {
+	camMinX = 0
+	camMinY = 0
+	camMaxX = width
+	camMaxY = height
+	camBoundsSet = true
+}
+
+func addEventListeners() {
 	// Add event listeners for each event type.
 	events := []string{"keydown", "keyup", "mousedown", "mousemove", "mouseup"}
 	for _, e := range events {
@@ -198,187 +266,6 @@ func Run(update func(dt float64)) {
 			return nil
 		}))
 	}
-	// Ensure that the loop function is not garbage collected.
-	loopFn = js.FuncOf(func(this js.Value, args []js.Value) any {
-		now := perf.Call("now").Float()
-		dt := now - lastTs
-		// Limit the maximum delta time to 50 milliseconds.
-		if dt > 50 {
-			dt = 50
-		}
-		lastTs = now
-		// Record the time since the last toggle.
-		lastToggle += dt
-		// Updates the data and handles the logic.
-		update(dt)
-		// Updates the camera position.
-		width, height := float64(CanvasWidth), float64(CanvasHeight)
-		// Center the camera on the target if it exists.
-		if CamTarget >= 0 {
-			targetX := Xs[CamTarget]
-			targetY := Ys[CamTarget]
-			camX = targetX - width/2.0
-			camY = targetY - height/2.0
-		}
-		// Ensure the camera position is within bounds.
-		if camBoundsSet {
-			worldW := camMaxX - camMinX
-			worldH := camMaxY - camMinY
-			// If the world is smaller than the view, center the world in the view.
-			// Center the camera X.
-			if worldW <= width {
-				camX = camMinX + (worldW-width)/2.0
-			} else {
-				min := camMinX
-				max := camMaxX - width
-				if camX < min {
-					camX = min
-				}
-				if camX > max {
-					camX = max
-				}
-			}
-			// Center the camera Y.
-			if worldH <= height {
-				camY = camMinY + (worldH-height)/2.0
-			} else {
-				min := camMinY
-				max := camMaxY - height
-				if camY < min {
-					camY = min
-				}
-				if camY > max {
-					camY = max
-				}
-			}
-		}
-		// Apply shake effect if active.
-		if CamShakeTime > 0 {
-			CamShakeTime -= dt
-			// Center to [-1, 1], scale by magnitude.
-			camShakeX = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
-			camShakeY = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
-		} else { // Or remove shake effect if shake time is 0.
-			camShakeX, camShakeY = 0, 0
-			CamShakeMagnitude = 0
-			CamShakeTime = 0
-		}
-		// Clear the canvas.
-		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
-		// Check if all assets are loaded.
-		allAssetsLoaded := imagesLoaded == len(images)
-		// Skip rendering the entities if not all assets are loaded.
-		if !allAssetsLoaded {
-			ctx.Set("fillStyle", "white")
-			ctx.Set("font", "24px Arial")
-			ctx.Set("textAlign", "center")
-			ctx.Set("textBaseline", "middle")
-			ctx.Call("fillText", "Loading...", CanvasWidth/2, CanvasHeight/2)
-			js.Global().Call("requestAnimationFrame", loopFn)
-			return nil
-		}
-		// Get the camera position and shake values.
-		// This will be used to calculate the visible entities
-		// and apply the camera transform.
-		ox := -camX + camShakeX
-		oy := -camY + camShakeY
-		ctx.Call("save")
-		ctx.Call("translate", ox, oy)
-		// Sort the entities based on their draw order.
-		sort.SliceStable(drawOrder, func(a, b int) bool {
-			ai := drawOrder[a]
-			bi := drawOrder[b]
-			// Check for lower Z layer first.
-			if Zs[ai] != Zs[bi] {
-				return Zs[ai] < Zs[bi]
-			}
-			// Check for painter's order by bottom edge (Y position + height).
-			// The destination rectangle is centered around the entity's position.
-			// Thus the Y order is a bit tricky because we need to consider
-			// the height of the entity and the position of the entity's center.
-			ya := Ys[ai] + Hs[ai]/2
-			yb := Ys[bi] + Hs[bi]/2
-			if ya != yb {
-				// Draw entities with lower Y coordinate first.
-				return ya < yb
-			}
-			return ai < bi
-		})
-		// Draw the entities (with 4 layers).
-		alphaResetNeeded := false
-		for _, i := range drawOrder {
-			img := images[Iis[i]]
-			// Skip entities without loaded images.
-			if !img.Truthy() {
-				continue
-			}
-			// Update the animation frame if sprite is animated.
-			if States[i]&StateEntityAnimated == StateEntityAnimated {
-				Fts[i] += dt
-				// Check if the animation frame has reached the maximum duration of 150 ms.
-				if Fts[i] >= 150 {
-					Fts[i] = 0
-					Fos[i]++
-				}
-				// Check if the animation frame has reached the maximum number of frames.
-				if Fos[i] >= Fcs[i] {
-					Fos[i] = 0
-					// Remove animation state (if not looping).
-					if States[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
-						States[i] &= ^StateEntityAnimated
-					}
-				}
-			}
-			// Calculate the source rectangle coordinates by using sprite position within the image
-			// and the animation frame offset (no animation = offset 0).
-			// Thus we can use spritesheets and tilesets in production and do not need to split sprites
-			// and tiles into multiple images.
-			srcX := float64(Ics[i])*Ws[i] + float64(Fos[i])*Ws[i]
-			srcY := float64(Irs[i]) * Hs[i]
-			// Calculate the destination rectangle coordinates by using entity position and size.
-			// The destination rectangle is centered around the entity's position.
-			dstX := Xs[i] - Ws[i]/2
-			dstY := Ys[i] - Hs[i]/2
-			// Set the alpha value for the image if less than 1.
-			if As[i] < 1 {
-				ctx.Set("globalAlpha", As[i])
-				alphaResetNeeded = true
-			}
-			// Draw the image on the canvas (centered).
-			ctx.Call("drawImage", img,
-				srcX, srcY, Ws[i], Hs[i],
-				dstX, dstY, Ws[i], Hs[i])
-			// Reset the alpha value if needed.
-			if alphaResetNeeded {
-				ctx.Set("globalAlpha", 1)
-				alphaResetNeeded = false
-			}
-		}
-		// Undo the camera transform to display UI elements.
-		ctx.Call("restore")
-		// Show "Click to start the game" message if there is no player input.
-		// We need a player input to play sound effects (security reason).
-		if !hasPlayerInput {
-			ctx.Set("fillStyle", "white")
-			ctx.Set("font", "24px Arial")
-			ctx.Set("textAlign", "center")
-			ctx.Set("textBaseline", "middle")
-			ctx.Call("fillText", "Click to start the game", CanvasWidth/2, CanvasHeight/2+80)
-		}
-		// Call the loop function recursively.
-		js.Global().Call("requestAnimationFrame", loopFn)
-		return nil
-	})
-	js.Global().Call("requestAnimationFrame", loopFn)
-}
-
-// SetWorldSize sets the world size.
-func SetWorldSize(width, height float64) {
-	camMinX = 0
-	camMinY = 0
-	camMaxX = width
-	camMaxY = height
-	camBoundsSet = true
 }
 
 // handleKeys handles key events.
@@ -425,6 +312,88 @@ func isFullscreen() bool {
 	return false
 }
 
+// renderEntities renders the entities on the canvas.
+func renderEntities(dt float64) {
+	// Sort the entities based on their draw order (Painter's algorithm).
+	sort.SliceStable(drawOrder, func(a, b int) bool {
+		ai := drawOrder[a]
+		bi := drawOrder[b]
+		// Check for lower Z layer first.
+		if Zs[ai] != Zs[bi] {
+			return Zs[ai] < Zs[bi]
+		}
+		// Check for painter's order by bottom edge (Y position + height).
+		// The destination rectangle is centered around the entity's position.
+		// Thus the Y order is a bit tricky because we need to consider
+		// the height of the entity and the position of the entity's center.
+		ya := Ys[ai] + Hs[ai]/2
+		yb := Ys[bi] + Hs[bi]/2
+		if ya != yb {
+			// Draw entities with lower Y coordinate first.
+			return ya < yb
+		}
+		return ai < bi
+	})
+	// Calculate viewport dimensions.
+	vw, vh := float64(CanvasWidth), float64(CanvasHeight)
+	vLeft, vTop := camX-camShakeX, camY-camShakeY
+	vRight, vBottom := vLeft+vw, vTop+vh
+	// Draw the entities with Z+Y sorting.
+	alphaResetNeeded := false
+	for _, i := range drawOrder {
+		img := images[Iis[i]]
+		// Skip entities without loaded images.
+		if !img.Truthy() {
+			continue
+		}
+		// Calculate the destination rectangle coordinates by using entity position and size.
+		// The destination rectangle is centered around the entity's position.
+		dstX := Xs[i] - Ws[i]/2
+		dstY := Ys[i] - Hs[i]/2
+		// Skip entities outside the viewport.
+		if dstX+Ws[i] < vLeft || dstX > vRight || dstY+Hs[i] < vTop || dstY > vBottom {
+			continue
+		}
+		// Update the animation frame if sprite is animated.
+		if States[i]&StateEntityAnimated == StateEntityAnimated {
+			Fts[i] += dt
+			// Check if the animation frame has reached the maximum duration of 150 ms.
+			if Fts[i] >= 150 {
+				Fts[i] = 0
+				Fos[i]++
+			}
+			// Check if the animation frame has reached the maximum number of frames.
+			if Fos[i] >= Fcs[i] {
+				Fos[i] = 0
+				// Remove animation state (if not looping).
+				if States[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
+					States[i] &= ^StateEntityAnimated
+				}
+			}
+		}
+		// Calculate the source rectangle coordinates by using sprite position within the image
+		// and the animation frame offset (no animation = offset 0).
+		// Thus we can use spritesheets and tilesets in production and do not need to split sprites
+		// and tiles into multiple images.
+		srcX := float64(Ics[i])*Ws[i] + float64(Fos[i])*Ws[i]
+		srcY := float64(Irs[i]) * Hs[i]
+		// Set the alpha value for the image if less than 1.
+		if As[i] < 1 {
+			ctx.Set("globalAlpha", As[i])
+			alphaResetNeeded = true
+		}
+		// Draw the image on the canvas (centered).
+		ctx.Call("drawImage", img,
+			srcX, srcY, Ws[i], Hs[i],
+			dstX, dstY, Ws[i], Hs[i])
+		// Reset the alpha value if needed.
+		if alphaResetNeeded {
+			ctx.Set("globalAlpha", 1)
+			alphaResetNeeded = false
+		}
+	}
+}
+
 // toggleFullscreen toggles the fullscreen mode of the engine.
 func toggleFullscreen() {
 	// Skip if the last toggle was too recent.
@@ -448,4 +417,60 @@ func toggleFullscreen() {
 	}
 	// Ensure to reset the last toggle time.
 	lastToggle = 0
+}
+
+// updateCamera updates the camera position.
+func updateCamera(dt float64) {
+	// Updates the camera position.
+	width, height := float64(CanvasWidth), float64(CanvasHeight)
+	// Center the camera on the target if it exists.
+	if CamTarget >= 0 {
+		targetX := Xs[CamTarget]
+		targetY := Ys[CamTarget]
+		camX = targetX - width/2.0
+		camY = targetY - height/2.0
+	}
+	// Ensure the camera position is within bounds.
+	if camBoundsSet {
+		worldW := camMaxX - camMinX
+		worldH := camMaxY - camMinY
+		// If the world is smaller than the view, center the world in the view.
+		// Center the camera X.
+		if worldW <= width {
+			camX = camMinX + (worldW-width)/2.0
+		} else {
+			min := camMinX
+			max := camMaxX - width
+			if camX < min {
+				camX = min
+			}
+			if camX > max {
+				camX = max
+			}
+		}
+		// Center the camera Y.
+		if worldH <= height {
+			camY = camMinY + (worldH-height)/2.0
+		} else {
+			min := camMinY
+			max := camMaxY - height
+			if camY < min {
+				camY = min
+			}
+			if camY > max {
+				camY = max
+			}
+		}
+	}
+	// Apply shake effect if active.
+	if CamShakeTime > 0 {
+		CamShakeTime -= dt
+		// Center to [-1, 1], scale by magnitude.
+		camShakeX = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
+		camShakeY = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
+	} else { // Or remove shake effect if shake time is 0.
+		camShakeX, camShakeY = 0, 0
+		CamShakeMagnitude = 0
+		CamShakeTime = 0
+	}
 }
