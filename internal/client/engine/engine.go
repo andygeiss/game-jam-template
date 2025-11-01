@@ -215,6 +215,7 @@ func SetWorldSize(width, height float64) {
 	camBoundsSet = true
 }
 
+// addEventListeners adds event listeners for each event type.
 func addEventListeners() {
 	// Add event listeners for each event type.
 	events := []string{"keydown", "keyup", "mousedown", "mousemove", "mouseup"}
