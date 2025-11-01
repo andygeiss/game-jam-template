@@ -3,7 +3,7 @@
 package engine
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 	"syscall/js"
 )
