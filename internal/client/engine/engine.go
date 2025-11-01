@@ -117,10 +117,15 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 func LoadImages(paths ...string) {
 	for _, path := range paths {
 		fullPath := "/assets/" + path
+		found := false
 		for _, img := range images {
 			if img.Get("src").String() == fullPath {
-				continue
+				found = true
+				break
 			}
+		}
+		if found {
+			continue
 		}
 		val := js.Global().Get("Image").New()
 		val.Set("src", fullPath)
@@ -138,10 +143,15 @@ func LoadImages(paths ...string) {
 func LoadSounds(paths ...string) {
 	for _, path := range paths {
 		fullPath := "/assets/" + path
+		found := false
 		for _, sound := range sounds {
 			if sound.Get("src").String() == fullPath {
-				continue
+				found = true
+				break
 			}
+		}
+		if found {
+			continue
 		}
 		val := js.Global().Get("Audio").New()
 		val.Set("src", fullPath)
