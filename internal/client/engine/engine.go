@@ -120,7 +120,7 @@ func LoadImages(paths ...string) {
 		fullPath := "/assets/" + path
 		for _, img := range images {
 			if img.Get("src").String() == fullPath {
-				return
+				continue
 			}
 		}
 		val := js.Global().Get("Image").New()
@@ -141,7 +141,7 @@ func LoadSounds(paths ...string) {
 		fullPath := "/assets/" + path
 		for _, sound := range sounds {
 			if sound.Get("src").String() == fullPath {
-				return
+				continue
 			}
 		}
 		val := js.Global().Get("Audio").New()
