@@ -6,29 +6,51 @@ import (
 	"template/internal/client/engine"
 )
 
+const (
+	cols        = 200
+	rows        = 200
+	worldWidth  = float64(cols) * 16
+	worldHeight = float64(rows) * 16
+)
+
+const (
+	indexLogo = iota
+	indexPlayer
+)
+
 func main() {
 	// Load the assets.
-	engine.LoadImages("/assets/wisp-engine.png", "/assets/player.png")
+	engine.LoadImages("/assets/wisp-engine.png", "/assets/player.png", "/assets/tileset.png")
 	engine.LoadSounds("/assets/title.ogg")
 	// Add the engine logo and player entity.
 	engine.AddEntity(engine.StateEntityVisible,
 		0, 0, 0,
 		160, 160,
-		640/2, 360/2,
+		worldWidth/2, worldHeight/2,
 		1,
-		0,
+		2,
 	)
 	engine.AddEntity(engine.StateEntityVisible,
 		1, 0, 0,
-		16, 16,
-		640/2, 360/2+140,
+		24, 24,
+		worldWidth/2, worldHeight/2,
 		1,
-		0,
+		1,
 	)
-	// Make an animation by using 8 frames with a duration of 125 ms each frame.
-	// This is handled by the engine under the hood.
-	// Thus we only need to set the state.
-	engine.States[1] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
+	// Add the tiles.
+	for i := 0; i < cols; i++ {
+		for j := 0; j < rows; j++ {
+			engine.AddEntity(engine.StateEntityVisible,
+				2, i%3, j%3,
+				16, 16,
+				float64(i)*16, float64(j)*16,
+				1,
+				0,
+			)
+		}
+	}
+	//
+	startedTs := 0.0
 	// Start the game loop.
 	engine.Run(func(dt float64) {
 		// Apply camera shake when key 1 is pressed.
@@ -43,7 +65,21 @@ func main() {
 		if engine.Key3 {
 			engine.HitStopRemaining = 100
 		}
+		// Hide the logo after 2 seconds.
+		if startedTs >= 2000 &&
+			engine.States[0]&engine.StateEntityVisible == engine.StateEntityVisible {
+			engine.States[0] ^= engine.StateEntityVisible
+		}
+		startedTs += dt
 	})
+	// Make an animation by using 8 frames with a duration of 125 ms each frame.
+	// This is handled by the engine under the hood.
+	// Thus we only need to set the state.
+	engine.States[indexPlayer] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
+	// Ensure that the camera is centered on the player.
+	engine.CamTarget = indexPlayer
+	// Ensure that the camera position is within the world bounds.
+	engine.SetWorldSize(worldWidth, worldHeight)
 	// Prevent the Go runtime from exiting.
 	select {}
 }
