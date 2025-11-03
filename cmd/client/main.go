@@ -7,50 +7,56 @@ import (
 )
 
 const (
-	cols        = 200
-	rows        = 200
-	worldWidth  = float64(cols) * 16
-	worldHeight = float64(rows) * 16
+	cols        = 30
+	rows        = 30
+	worldWidth  = float64(cols) * 32
+	worldHeight = float64(rows) * 32
 )
 
 const (
-	indexLogo = iota
-	indexPlayer
+	indexEntityPlayer = iota
 )
 
-func main() {
-	// Load the assets.
-	engine.LoadImages("/assets/wisp-engine.png", "/assets/player.png", "/assets/tileset.png")
-	engine.LoadSounds("/assets/title.ogg")
-	// Add the engine logo and player entity.
+const (
+	indexImagePlayer = iota
+	indexImageTileset
+)
+
+// addPlayer adds the player entity to the game world.
+func addPlayer() {
 	engine.AddEntity(engine.StateEntityVisible,
-		0, 0, 0,
-		160, 160,
-		worldWidth/2, worldHeight/2,
-		1,
-		2,
-	)
-	engine.AddEntity(engine.StateEntityVisible,
-		1, 0, 0,
-		24, 24,
+		indexImagePlayer, 0, 0,
+		32, 32,
 		worldWidth/2, worldHeight/2,
 		1,
 		1,
 	)
-	// Add the tiles.
+}
+
+// addTiles adds the tiles to the game world.
+func addTiles() {
 	for i := 0; i < cols; i++ {
 		for j := 0; j < rows; j++ {
+			col := i % 2
+			row := j % 2
 			engine.AddEntity(engine.StateEntityVisible,
-				2, i%3, j%3,
-				16, 16,
-				float64(i)*16, float64(j)*16,
+				indexImageTileset, row, col,
+				32, 32,
+				float64(i)*32, float64(j)*32,
 				1,
 				0,
 			)
 		}
 	}
-	//
-	startedTs := 0.0
+}
+
+func main() {
+	// Load the assets.
+	engine.LoadImages("/assets/player.png", "/assets/tileset.png")
+	engine.LoadSounds("/assets/title.ogg")
+	// Add the entities.
+	addPlayer()
+	addTiles()
 	// Start the game loop.
 	engine.Run(func(dt float64) {
 		// Apply camera shake when key 1 is pressed.
@@ -65,19 +71,13 @@ func main() {
 		if engine.Key3 {
 			engine.HitStopRemaining = 100
 		}
-		// Hide the logo after 2 seconds.
-		if startedTs >= 2000 &&
-			engine.States[0]&engine.StateEntityVisible == engine.StateEntityVisible {
-			engine.States[0] ^= engine.StateEntityVisible
-		}
-		startedTs += dt
 	})
-	// Make an animation by using 8 frames with a duration of 125 ms each frame.
+	// Make an animation by using 8 frames with a duration of 100 ms each frame.
 	// This is handled by the engine under the hood.
 	// Thus we only need to set the state.
-	engine.States[indexPlayer] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
+	engine.States[indexEntityPlayer] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
 	// Ensure that the camera is centered on the player.
-	engine.CamTarget = indexPlayer
+	engine.CamTarget = indexEntityPlayer
 	// Ensure that the camera position is within the world bounds.
 	engine.SetWorldSize(worldWidth, worldHeight)
 	// Prevent the Go runtime from exiting.

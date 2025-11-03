@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	// Wisp uses animations with 8 frames and a duration of 125 ms.
+	// Wisp uses animations with 8 frames and a duration of 100 ms.
 	// It provides a simple and efficient way to create animations.
 	// It is a sweet spot between smoothness and performance.
 	AnimationFrameCount    = 8
-	AnimationFrameDuration = 125
+	AnimationFrameDuration = 100
 	// A canvas size of 640x360 is often used for pixel art games.
 	// This resolution can be easily scaled up or down without losing quality.
 	// We use some default constants here to make the implementation simpler.
@@ -402,7 +402,7 @@ func renderEntities(dt float64) {
 		// Update the animation frame if sprite is animated.
 		if States[i]&StateEntityAnimated == StateEntityAnimated {
 			Fts[i] += dt
-			// Check if the animation frame has reached the maximum duration of 125 ms.
+			// Check if the animation frame has reached the maximum duration.
 			if Fts[i] >= AnimationFrameDuration {
 				Fts[i] = 0
 				Fos[i]++
