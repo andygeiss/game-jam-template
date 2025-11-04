@@ -3,6 +3,7 @@
 package engine
 
 import (
+	"math"
 	"math/rand/v2"
 	"sort"
 	"syscall/js"
@@ -223,8 +224,12 @@ func Run(updateScene func(dt float64)) {
 		// and apply the camera transform.
 		ox := -camX + camShakeX
 		oy := -camY + camShakeY
+		// Snap camera movement (including shake) to integer pixels.
+		// This fixes the “pixel seams” from sub-pixel camera movement.
+		tx := math.Round(ox)
+		ty := math.Round(oy)
 		ctx.Call("save")
-		ctx.Call("translate", ox, oy)
+		ctx.Call("translate", tx, ty)
 		// Render the entities on the canvas.
 		renderEntities(dt)
 		// Undo the camera transform to display UI elements.
