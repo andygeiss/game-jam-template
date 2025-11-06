@@ -30,6 +30,10 @@ const (
 	// Only animated entities will receive frame updates.
 	StateEntityAnimated = uint64(1 << iota)
 	StateEntityAnimatedLoop
+	StateEntityMoveDown
+	StateEntityMoveLeft
+	StateEntityMoveRight
+	StateEntityMoveUp
 	StateEntityVisible
 )
 

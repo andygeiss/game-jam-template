@@ -14,10 +14,6 @@ const (
 )
 
 const (
-	indexEntityPlayer = iota
-)
-
-const (
 	indexImagePlayer = iota
 	indexImageTileset
 )
@@ -58,16 +54,13 @@ func main() {
 		if engine.Key3 {
 			engine.HitStopRemaining = 100
 		}
-		if engine.Key4 {
-
-		}
 	})
 	// Make an animation by using 8 frames with a duration of 100 ms each frame.
 	// This is handled by the engine under the hood.
 	// Thus we only need to set the state.
-	engine.States[indexEntityPlayer] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
+	engine.States[0] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
 	// Ensure that the camera is centered on the player.
-	engine.CamTarget = indexEntityPlayer
+	engine.CamTarget = 0
 	// Ensure that the camera position is within the world bounds.
 	engine.SetWorldSize(worldWidth, worldHeight)
 	// Prevent the Go runtime from exiting.
