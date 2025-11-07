@@ -591,8 +591,6 @@ func updateStates(dt float64) {
 		key := state & RowIndexMask
 		if rowIndex, ok := RowIndexForState[key]; ok && Irs[i] != rowIndex {
 			Irs[i] = rowIndex
-			Fos[i] = 0
-			Fts[i] = 0
 		}
 		// Write back the new state.
 		States[i] = state
