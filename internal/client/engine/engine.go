@@ -47,6 +47,7 @@ var (
 	CamShakeMagnitude float64
 	CamShakeTime      float64
 	CamTarget         int // -1 no target
+	hasPlayerInput    bool
 	HitStopRemaining  float64
 	Key1              bool
 	Key2              bool
@@ -91,7 +92,6 @@ var (
 	ctx                  js.Value
 	doc                  js.Value
 	drawOrder            []int
-	hasPlayerInput       bool
 	lastToggleMs         float64
 	images               []js.Value
 	imagesLoaded         int
@@ -147,7 +147,10 @@ func LoadSounds(paths ...string) {
 
 // PlaySound plays a sound from the given index.
 func PlaySound(index int, volume float64, loop bool) {
-	if sounds[index].Get("paused").Bool() {
+	if !hasPlayerInput {
+		return
+	}
+	if sounds[index].Truthy() && sounds[index].Get("paused").Bool() {
 		sounds[index].Set("loop", loop)
 		sounds[index].Set("volume", volume)
 		sounds[index].Call("play")
@@ -156,7 +159,10 @@ func PlaySound(index int, volume float64, loop bool) {
 
 // StopSound stops a sound from the given index.
 func StopSound(index int) {
-	if !sounds[index].Get("paused").Bool() {
+	if !hasPlayerInput {
+		return
+	}
+	if sounds[index].Truthy() && !sounds[index].Get("paused").Bool() {
 		sounds[index].Set("currentTime", 0)
 		sounds[index].Call("pause")
 	}

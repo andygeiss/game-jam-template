@@ -70,33 +70,26 @@ func main() {
 	addTiles(tilemap)
 	// Start the game loop.
 	engine.Run(func(dt float64) {
-		// Apply camera shake when key 1 is pressed.
-		if engine.Key1 {
-			engine.CamShakeMagnitude = 2.5
-			engine.CamShakeTime = 150 // big finisher: 150-200, light hits: 40-70
-		}
 		// Play the title sound if it's not already playing.
-		if engine.Key2 {
-			engine.PlaySound(0, 0.25, true)
+		engine.PlaySound(0, 0.25, true)
+		// Handle game-specific states.
+		s := engine.States[0]
+		if s&StateAttack == StateAttack {
+			if engine.Fos[0] == 3 {
+				engine.CamShakeMagnitude = 2.5
+				engine.CamShakeTime = 75
+			}
+			if engine.Fos[0] == 7 {
+				s &= ^StateAttack
+			}
 		}
-		if engine.Key3 {
-			engine.HitStopRemaining = 100
-		}
-
-		state := engine.States[0]
-		if engine.KeyE && state&StateAttack != StateAttack {
-			state &= ^(engine.StateEntityAnimatedLoop | engine.StateEntityIdle)
-			state |= StateAttack
+		if engine.KeyE && s&StateAttack != StateAttack {
+			s &= ^engine.StateEntityIdle
+			s |= StateAttack
 			engine.Fos[0] = 0
 			engine.Fts[0] = 0
 		}
-		if state&StateAttack == StateAttack && engine.Fos[0] >= 7 {
-			state &= ^StateAttack
-			state |= engine.StateEntityAnimatedLoop | engine.StateEntityIdle
-			engine.Fos[0] = 0
-			engine.Fts[0] = 0
-		}
-		engine.States[0] = state
+		engine.States[0] = s
 	})
 	// Make an animation by using 8 frames with a duration of 100 ms each frame.
 	// This is handled by the engine under the hood.
