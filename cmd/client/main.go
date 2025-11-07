@@ -30,14 +30,21 @@ const (
 	imgRowMoveLeft
 )
 
+const (
+	StateAttack = uint64(1 << (iota + 10))
+)
+
 func main() {
 	// Load the assets.
 	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png")
 	engine.LoadSounds("/assets/title.ogg")
 	// Load the state mapping.
-	engine.RowIndexMask =
-		engine.StateEntityFaceLeft | engine.StateEntityFaceRight | engine.StateEntityIdle | engine.StateEntityMove
+	engine.RowIndexMask = StateAttack |
+		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
+		engine.StateEntityIdle | engine.StateEntityMove
 	engine.RowIndexForState = map[uint64]int{
+		engine.StateEntityFaceRight | StateAttack:            4,
+		engine.StateEntityFaceLeft | StateAttack:             5,
 		engine.StateEntityFaceRight | engine.StateEntityIdle: 0,
 		engine.StateEntityFaceLeft | engine.StateEntityIdle:  1,
 		engine.StateEntityFaceRight | engine.StateEntityMove: 2,
@@ -75,6 +82,21 @@ func main() {
 		if engine.Key3 {
 			engine.HitStopRemaining = 100
 		}
+
+		state := engine.States[0]
+		if engine.KeyE && state&StateAttack != StateAttack {
+			state &= ^(engine.StateEntityAnimatedLoop | engine.StateEntityIdle)
+			state |= StateAttack
+			engine.Fos[0] = 0
+			engine.Fts[0] = 0
+		}
+		if state&StateAttack == StateAttack && engine.Fos[0] >= 7 {
+			state &= ^StateAttack
+			state |= engine.StateEntityAnimatedLoop | engine.StateEntityIdle
+			engine.Fos[0] = 0
+			engine.Fts[0] = 0
+		}
+		engine.States[0] = state
 	})
 	// Make an animation by using 8 frames with a duration of 100 ms each frame.
 	// This is handled by the engine under the hood.

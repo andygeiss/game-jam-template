@@ -528,71 +528,76 @@ func updateCamera(dt float64) {
 	}
 }
 
-// updateStates implements a Finite-State Machine (FSM) by using the existing
-// Structure of Arrays (SOA) approach to transition between the current and
-// the next state for every entity in the States slice.
-// In addition to that, it switches the animation based on player input under
-// the hood.
+// updateStates transitions every entity from one state to another.
 func updateStates(dt float64) {
-	// Handle player inputs.
-	// Clear the move states first and then use the player input to set the state.
-	// Do not clear the face states.
-	state := States[0]
-	state &= ^(StateEntityMoveDown | StateEntityMoveLeft | StateEntityMoveRight | StateEntityMoveUp)
-	if KeyDown {
-		state |= StateEntityMoveDown | StateEntityFaceDown
-		state &= ^StateEntityFaceUp
-	}
+	// Handle input for the player entity (0).
+	s := States[0]
+	s &^= (StateEntityMoveDown | StateEntityMoveLeft | StateEntityMoveRight | StateEntityMoveUp)
 	if KeyLeft {
-		state |= StateEntityMoveLeft | StateEntityFaceLeft
-		state &= ^StateEntityFaceRight
+		s |= StateEntityMoveLeft | StateEntityFaceLeft
+		s &^= StateEntityFaceRight
 	}
 	if KeyRight {
-		state |= StateEntityMoveRight | StateEntityFaceRight
-		state &= ^StateEntityFaceLeft
+		s |= StateEntityMoveRight | StateEntityFaceRight
+		s &^= StateEntityFaceLeft
 	}
 	if KeyUp {
-		state |= StateEntityMoveUp | StateEntityFaceUp
-		state &= ^StateEntityFaceDown
+		s |= StateEntityMoveUp
 	}
-	States[0] = state
-	// Update each state.
-	for i, state := range States {
-		// Handle entity movement.
-		// Normalize to prevent diagonal speed boost while moving ;-)
-		vx, vy := 0.0, 0.0
-		if state&StateEntityMoveDown == StateEntityMoveDown {
-			vy += 1.0
+	if KeyDown {
+		s |= StateEntityMoveDown
+	}
+	States[0] = s
+	// Update the state of each entity.
+	for i, s := range States {
+		masked := s & RowIndexMask
+		// Check for external events provided by RowIndexMask and extract them from
+		// the current state by unmasking the engine-known states.
+		externalAction := masked &^ (StateEntityFaceLeft | StateEntityFaceRight | StateEntityIdle | StateEntityMove)
+		if externalAction != 0 {
+			s &^= (StateEntityMove | StateEntityMoveDown | StateEntityMoveLeft | StateEntityMoveRight | StateEntityMoveUp | StateEntityIdle)
 		}
-		if state&StateEntityMoveLeft == StateEntityMoveLeft {
-			vx -= 1.0
+		// Handle engine-known states.
+		if externalAction == 0 {
+			vx, vy := 0.0, 0.0
+			if s&StateEntityMoveLeft != 0 {
+				vx -= 1
+			}
+			if s&StateEntityMoveRight != 0 {
+				vx += 1
+			}
+			if s&StateEntityMoveUp != 0 {
+				vy -= 1
+			}
+			if s&StateEntityMoveDown != 0 {
+				vy += 1
+			}
+			// Normalize (fix diagonal boost) and move.
+			if n := vx*vx + vy*vy; n > 0 {
+				inv := 1.0 / math.Sqrt(n)
+				vx *= inv
+				vy *= inv
+				Xs[i] += vx * EntitySpeed * dt
+				Ys[i] += vy * EntitySpeed * dt
+				// Clear idle and set move state.
+				s &^= StateEntityIdle
+				s |= StateEntityMove
+			} else {
+				// Clear Move and set idle state.
+				s &^= StateEntityMove
+				s |= StateEntityIdle
+			}
 		}
-		if state&StateEntityMoveRight == StateEntityMoveRight {
-			vx += 1.0
+		// Switch spritesheet row via game-provided mapping.
+		if RowIndexForState != nil {
+			key := s & RowIndexMask
+			if row, ok := RowIndexForState[key]; ok && Irs[i] != row {
+				Irs[i] = row
+				Fos[i] = 0
+				Fts[i] = 0
+			}
 		}
-		if state&StateEntityMoveUp == StateEntityMoveUp {
-			vy -= 1.0
-		}
-		n := vx*vx + vy*vy
-		if n > 0 {
-			invLen := 1.0 / math.Sqrt(n)
-			vx *= invLen
-			vy *= invLen
-			Xs[i] += vx * EntitySpeed * dt
-			Ys[i] += vy * EntitySpeed * dt
-			state &= ^StateEntityIdle
-			state |= StateEntityMove
-		} else {
-			state &= ^StateEntityMove
-			state |= StateEntityIdle
-		}
-		// Handle animation switching if the rowIndex is not already set by using
-		// the lookup table provided from the game.
-		key := state & RowIndexMask
-		if rowIndex, ok := RowIndexForState[key]; ok && Irs[i] != rowIndex {
-			Irs[i] = rowIndex
-		}
-		// Write back the new state.
-		States[i] = state
+		// Save the new state.
+		States[i] = s
 	}
 }
