@@ -21,15 +21,20 @@ const (
 	// This engine has a simple concept and does not compete with other engines.
 	CanvasWidth  = 640
 	CanvasHeight = 360
-)
-
-const (
+	// Base speed for the entity movement.
+	EntitySpeed = 0.05
 	// An entity has different states which determine its behavior.
 	// The engine uses these states to provide basic functionality.
 	// Only visible entities will be rendered.
 	// Only animated entities will receive frame updates.
 	StateEntityAnimated = uint64(1 << iota)
 	StateEntityAnimatedLoop
+	StateEntityFaceDown
+	StateEntityFaceLeft
+	StateEntityFaceRight
+	StateEntityFaceUp
+	StateEntityIdle
+	StateEntityMove
 	StateEntityMoveDown
 	StateEntityMoveLeft
 	StateEntityMoveRight
@@ -38,83 +43,78 @@ const (
 )
 
 var (
-	// Control a 2D camera.
-	camBoundsSet         bool
-	camX, camY           float64
-	camMinX, camMinY     float64
-	camMaxX, camMaxY     float64
-	camShakeX, camShakeY float64
-	CamShakeMagnitude    float64
-	CamShakeTime         float64
-	CamTarget            int // -1 no target
-	// canvas and ctx will be used to draw.
-	// doc will be used to access the document.
-	canvas js.Value
-	ctx    js.Value
-	doc    js.Value
-	// Flags to control the engine's behavior.
-	hasPlayerInput bool
-	lastToggleMs   float64
-	// Store the images.
-	images       []js.Value
-	imagesLoaded int
-	// Key input related.
-	Key1     bool
-	Key2     bool
-	Key3     bool
-	Key4     bool
-	KeyDown  bool
-	KeyE     bool
-	KeyLeft  bool
-	KeyQ     bool
-	KeyR     bool
-	KeyRight bool
-	KeyT     bool
-	KeyUp    bool
-	// The last timestamp of the animation frame.
-	lastTs           float64
-	HitStopRemaining float64
-	// Ensure that the loop function is not garbage collected.
-	loopFn js.Func
-	// Mouse input related.
-	MouseDown bool
-	MouseX    float64
-	MouseY    float64
-	// Store the sounds.
-	sounds       []js.Value
-	soundsLoaded int
-	// Store the entities.
+	// Define public attributes.
+	CamShakeMagnitude float64
+	CamShakeTime      float64
+	CamTarget         int // -1 no target
+	HitStopRemaining  float64
+	Key1              bool
+	Key2              bool
+	Key3              bool
+	Key4              bool
+	KeyDown           bool
+	KeyE              bool
+	KeyLeft           bool
+	KeyQ              bool
+	KeyR              bool
+	KeyRight          bool
+	KeyT              bool
+	KeyUp             bool
+	MouseDown         bool
+	MouseX            float64
+	MouseY            float64
+	RowIndexForState  map[uint64]int // row index for spritesheet
+	RowIndexMask      uint64         // enabled row bits
+	// Structure of Arrays to store the entities.
 	States []uint64
 	As     []float64 // alpha (opacity)
+	Fos    []int     // frame offsets.
+	Fts    []float64 // frame times.
 	Ics    []int     // image col
 	Irs    []int     // image row
 	Iis    []int     // image index
 	Ws     []float64 // sprite width
 	Hs     []float64 // sprite height
-	Xs     []float64
-	Ys     []float64
-	Zs     []int
-	// Store the animations frames.
-	Fos []int     // frame offsets.
-	Fts []float64 // frame times.
-	// draw order-related.
-	drawOrder []int // order of the entities.
+	Xs     []float64 // entity x position
+	Ys     []float64 // entity y position
+	Zs     []int     // entity layer index
+)
+
+var (
+	// Define private attributes.
+	camBoundsSet         bool
+	camX, camY           float64
+	camMinX, camMinY     float64
+	camMaxX, camMaxY     float64
+	camShakeX, camShakeY float64
+	canvas               js.Value
+	ctx                  js.Value
+	doc                  js.Value
+	drawOrder            []int
+	hasPlayerInput       bool
+	lastToggleMs         float64
+	images               []js.Value
+	imagesLoaded         int
+	lastTs               float64
+	loopFn               js.Func
+	sounds               []js.Value
+	soundsLoaded         int
 )
 
 // AddEntity adds a new entity to the engine.
 func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) {
-	States = append(States, state)
 	As = append(As, alpha)
+	Fos = append(Fos, 0)
+	Fts = append(Fts, 0)
+	Hs = append(Hs, h)
 	Iis = append(Iis, imgIndex)
 	Ics = append(Ics, imgCol)
 	Irs = append(Irs, imgRow)
+	States = append(States, state)
 	Ws = append(Ws, w)
-	Hs = append(Hs, h)
 	Xs = append(Xs, x)
 	Ys = append(Ys, y)
 	Zs = append(Zs, z)
-	Fos = append(Fos, 0)
-	Fts = append(Fts, 0)
 	// Add the current index to the draw order.
 	drawOrder = append(drawOrder, len(States)-1)
 }
@@ -165,6 +165,8 @@ func StopSound(index int) {
 // Run initializes the engine and starts the main loop.
 // This function is called every frame with the delta time (in ms).
 func Run(updateScene func(dt float64)) {
+	// RowIndexForState must be specified.
+	// RowIndexMask must be set.
 	// Create a few shortcuts.
 	doc = js.Global().Get("document")
 	perf := js.Global().Get("performance")
@@ -207,6 +209,8 @@ func Run(updateScene func(dt float64)) {
 		}
 		// Updates the data and handles the logic.
 		updateScene(dt)
+		// Update the states.
+		updateStates(dt)
 		// Update the camera position and shake even if hitstop is active.
 		updateCamera(dt)
 		// Clear the canvas.
@@ -521,5 +525,76 @@ func updateCamera(dt float64) {
 		camShakeX, camShakeY = 0, 0
 		CamShakeMagnitude = 0
 		CamShakeTime = 0
+	}
+}
+
+// updateStates implements a Finite-State Machine (FSM) by using the existing
+// Structure of Arrays (SOA) approach to transition between the current and
+// the next state for every entity in the States slice.
+// In addition to that, it switches the animation based on player input under
+// the hood.
+func updateStates(dt float64) {
+	// Handle player inputs.
+	// Clear the move states first and then use the player input to set the state.
+	// Do not clear the face states.
+	state := States[0]
+	state &= ^(StateEntityMoveDown | StateEntityMoveLeft | StateEntityMoveRight | StateEntityMoveUp)
+	if KeyDown {
+		state |= StateEntityMoveDown | StateEntityFaceDown
+		state &= ^StateEntityFaceUp
+	}
+	if KeyLeft {
+		state |= StateEntityMoveLeft | StateEntityFaceLeft
+		state &= ^StateEntityFaceRight
+	}
+	if KeyRight {
+		state |= StateEntityMoveRight | StateEntityFaceRight
+		state &= ^StateEntityFaceLeft
+	}
+	if KeyUp {
+		state |= StateEntityMoveUp | StateEntityFaceUp
+		state &= ^StateEntityFaceDown
+	}
+	States[0] = state
+	// Update each state.
+	for i, state := range States {
+		// Handle entity movement.
+		// Normalize to prevent diagonal speed boost while moving ;-)
+		vx, vy := 0.0, 0.0
+		if state&StateEntityMoveDown == StateEntityMoveDown {
+			vy += 1.0
+		}
+		if state&StateEntityMoveLeft == StateEntityMoveLeft {
+			vx -= 1.0
+		}
+		if state&StateEntityMoveRight == StateEntityMoveRight {
+			vx += 1.0
+		}
+		if state&StateEntityMoveUp == StateEntityMoveUp {
+			vy -= 1.0
+		}
+		n := vx*vx + vy*vy
+		if n > 0 {
+			invLen := 1.0 / math.Sqrt(n)
+			vx *= invLen
+			vy *= invLen
+			Xs[i] += vx * EntitySpeed * dt
+			Ys[i] += vy * EntitySpeed * dt
+			state &= ^StateEntityIdle
+			state |= StateEntityMove
+		} else {
+			state &= ^StateEntityMove
+			state |= StateEntityIdle
+		}
+		// Handle animation switching if the rowIndex is not already set by using
+		// the lookup table provided from the game.
+		key := state & RowIndexMask
+		if rowIndex, ok := RowIndexForState[key]; ok && Irs[i] != rowIndex {
+			Irs[i] = rowIndex
+			Fos[i] = 0
+			Fts[i] = 0
+		}
+		// Write back the new state.
+		States[i] = state
 	}
 }

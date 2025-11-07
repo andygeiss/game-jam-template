@@ -3,6 +3,7 @@
 package main
 
 import (
+	"math"
 	"template/internal/client/engine"
 )
 
@@ -14,14 +15,34 @@ const (
 )
 
 const (
+	invSqrt2 = 1.0 / math.Sqrt2
+)
+
+const (
 	indexImagePlayer = iota
 	indexImageTileset
+)
+
+const (
+	imgRowIdleRight = iota
+	imgRowIdleLeft
+	imgRowMoveRight
+	imgRowMoveLeft
 )
 
 func main() {
 	// Load the assets.
 	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png")
 	engine.LoadSounds("/assets/title.ogg")
+	// Load the state mapping.
+	engine.RowIndexMask =
+		engine.StateEntityFaceLeft | engine.StateEntityFaceRight | engine.StateEntityIdle | engine.StateEntityMove
+	engine.RowIndexForState = map[uint64]int{
+		engine.StateEntityFaceRight | engine.StateEntityIdle: 0,
+		engine.StateEntityFaceLeft | engine.StateEntityIdle:  1,
+		engine.StateEntityFaceRight | engine.StateEntityMove: 2,
+		engine.StateEntityFaceLeft | engine.StateEntityMove:  3,
+	}
 	// Set the tilemap.
 	tilemap := []int{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -58,7 +79,8 @@ func main() {
 	// Make an animation by using 8 frames with a duration of 100 ms each frame.
 	// This is handled by the engine under the hood.
 	// Thus we only need to set the state.
-	engine.States[0] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop
+	engine.States[0] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop |
+		engine.StateEntityFaceRight | engine.StateEntityIdle
 	// Ensure that the camera is centered on the player.
 	engine.CamTarget = 0
 	// Ensure that the camera position is within the world bounds.
