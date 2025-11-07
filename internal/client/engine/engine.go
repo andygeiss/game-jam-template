@@ -74,6 +74,7 @@ var (
 	Ics    []int     // image col
 	Irs    []int     // image row
 	Iis    []int     // image index
+	Ss     []float64 // sprite speed factor
 	Ws     []float64 // sprite width
 	Hs     []float64 // sprite height
 	Xs     []float64 // entity x position
@@ -110,6 +111,7 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	Iis = append(Iis, imgIndex)
 	Ics = append(Ics, imgCol)
 	Irs = append(Irs, imgRow)
+	Ss = append(Ss, 1.0)
 	States = append(States, state)
 	Ws = append(Ws, w)
 	Xs = append(Xs, x)
@@ -556,52 +558,46 @@ func updateStates(dt float64) {
 	States[0] = s
 	// Update the state of each entity.
 	for i, s := range States {
-		masked := s & RowIndexMask
-		// Check for external events provided by RowIndexMask and extract them from
-		// the current state by unmasking the engine-known states.
-		externalAction := masked &^ (StateEntityFaceLeft | StateEntityFaceRight | StateEntityIdle | StateEntityMove)
-		if externalAction != 0 {
-			s &^= (StateEntityMove | StateEntityMoveDown | StateEntityMoveLeft | StateEntityMoveRight | StateEntityMoveUp | StateEntityIdle)
-		}
 		// Handle engine-known states.
-		if externalAction == 0 {
-			vx, vy := 0.0, 0.0
-			if s&StateEntityMoveLeft != 0 {
-				vx -= 1
-			}
-			if s&StateEntityMoveRight != 0 {
-				vx += 1
-			}
-			if s&StateEntityMoveUp != 0 {
-				vy -= 1
-			}
-			if s&StateEntityMoveDown != 0 {
-				vy += 1
-			}
-			// Normalize (fix diagonal boost) and move.
-			if n := vx*vx + vy*vy; n > 0 {
-				inv := 1.0 / math.Sqrt(n)
-				vx *= inv
-				vy *= inv
-				Xs[i] += vx * EntitySpeed * dt
-				Ys[i] += vy * EntitySpeed * dt
-				// Clear idle and set move state.
-				s &^= StateEntityIdle
-				s |= StateEntityMove
-			} else {
-				// Clear Move and set idle state.
-				s &^= StateEntityMove
-				s |= StateEntityIdle
-			}
+		vx, vy := 0.0, 0.0
+		if s&StateEntityMoveLeft != 0 {
+			vx -= 1
+		}
+		if s&StateEntityMoveRight != 0 {
+			vx += 1
+		}
+		if s&StateEntityMoveUp != 0 {
+			vy -= 1
+		}
+		if s&StateEntityMoveDown != 0 {
+			vy += 1
+		}
+		// Normalize (fix diagonal boost) and move.
+		if n := vx*vx + vy*vy; n > 0 {
+			inv := 1.0 / math.Sqrt(n)
+			sf := Ss[i] // sprite speed factor
+			vx *= inv * sf
+			vy *= inv * sf
+			Xs[i] += vx * EntitySpeed * dt
+			Ys[i] += vy * EntitySpeed * dt
+			// Clear idle and set move state.
+			s &^= StateEntityIdle
+			s |= StateEntityMove
+		} else {
+			// Clear Move and set idle state.
+			s &^= StateEntityMove
+			s |= StateEntityIdle
 		}
 		// Switch spritesheet row via game-provided mapping.
-		if RowIndexForState != nil {
-			key := s & RowIndexMask
-			if row, ok := RowIndexForState[key]; ok && Irs[i] != row {
-				Irs[i] = row
-				Fos[i] = 0
-				Fts[i] = 0
-			}
+		key := s & RowIndexMask
+		externalAction := key &^ (StateEntityFaceLeft | StateEntityFaceRight | StateEntityIdle | StateEntityMove)
+		if externalAction != 0 {
+			key &^= (StateEntityMove | StateEntityIdle)
+		}
+		if row, ok := RowIndexForState[key]; ok && Irs[i] != row {
+			Irs[i] = row
+			Fos[i] = 0
+			Fts[i] = 0
 		}
 		// Save the new state.
 		States[i] = s

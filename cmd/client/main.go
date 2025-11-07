@@ -78,9 +78,11 @@ func main() {
 			if engine.Fos[0] == 3 {
 				engine.CamShakeMagnitude = 2.5
 				engine.CamShakeTime = 75
+				engine.Ss[0] = 3.0
 			}
 			if engine.Fos[0] == 7 {
 				s &= ^StateAttack
+				engine.Ss[0] = 1.0
 			}
 		}
 		if engine.KeyE && s&StateAttack != StateAttack {
