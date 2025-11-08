@@ -8,10 +8,12 @@ import (
 )
 
 const (
-	cols        = 22
-	rows        = 12
-	worldWidth  = float64(cols) * 32
-	worldHeight = float64(rows) * 32
+	cols   = 22
+	rows   = 12
+	tileW  = 32
+	tileH  = 32
+	worldW = float64(cols) * tileW
+	worldH = float64(rows) * tileH
 )
 
 const (
@@ -54,7 +56,7 @@ func main() {
 		StateDead: indexRowDeath,
 	}
 	// Set the tilemap.
-	tilemap := []int{
+	tiles := []int{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -71,7 +73,7 @@ func main() {
 	// Add the entities.
 	addPlayer()
 	addMobs()
-	addTiles(tilemap)
+	engine.AddTilemap(indexImageTileset, tiles, cols, rows, tileW, tileH)
 	// Start the game loop.
 	engine.Run(func(dt float64) {
 		// Play the title sound if it's not already playing.
@@ -115,7 +117,7 @@ func main() {
 	// Ensure that the camera is centered on the player.
 	engine.CamTarget = 0
 	// Ensure that the camera position is within the world bounds.
-	engine.SetWorldSize(worldWidth, worldHeight)
+	engine.SetWorldSize(worldW, worldH)
 	// Prevent the Go runtime from exiting.
 	select {}
 }
@@ -124,7 +126,7 @@ func main() {
 func addMobs() {
 	const n = 10
 	const r = 500.0 // at least 300 px from the player
-	px, py := worldWidth/2, worldHeight/2
+	px, py := worldW/2, worldH/2
 	for i := 0; i < n; i++ {
 		ang := 2 * math.Pi * float64(i) / float64(n)
 		x := px + math.Cos(ang)*r
@@ -150,29 +152,10 @@ func addPlayer() {
 		engine.StateEntityFaceRight|engine.StateEntityIdle|engine.StateEntityVisible,
 		indexImageSpritesheet, 0, 0,
 		32, 32,
-		worldWidth/2, worldHeight/2,
+		worldW/2, worldH/2,
 		1,
 		1,
 	)
-}
-
-// addTiles adds the tiles to the game world.
-func addTiles(tiles []int) {
-	for i := 0; i < cols; i++ {
-		for j := 0; j < rows; j++ {
-			// Calculate the image column and row based on the tile index.
-			imgCol := tiles[i*rows+j] / cols
-			imgRow := tiles[i*rows+j] % cols
-			// Add the tile entity to the game world.
-			engine.AddEntity(engine.StateEntityVisible,
-				indexImageTileset, imgCol, imgRow,
-				32, 32,
-				float64(i)*32, float64(j)*32,
-				1,
-				0,
-			)
-		}
-	}
 }
 
 // killMonster stops rendering and updating this monster.
@@ -188,7 +171,7 @@ func killMonster(i int) {
 	// Mark as dead and start one-shot animation (marked as auto-hide).
 	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityAutoHide | engine.StateEntityVisible
 	engine.States[i] = s
-	// Create a hit-stop at the 6th attack frame.
+	// Create a hit-stop at the 6th attack frame of the player's attack animation.
 	engine.Fos[0] = 5
 	engine.HitStopRemaining = 200
 }

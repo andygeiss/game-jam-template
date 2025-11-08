@@ -125,6 +125,25 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	drawOrder = append(drawOrder, len(States)-1)
 }
 
+// AddTilemap creates a grid of tile entities from a flat index array.
+func AddTilemap(imgIndex int, tiles []int, cols, rows int, tileW, tileH float64) {
+	for i := 0; i < cols; i++ {
+		for j := 0; j < rows; j++ {
+			// Calculate the image column and row based on the tile index.
+			imgCol := tiles[i*rows+j] / cols
+			imgRow := tiles[i*rows+j] % cols
+			// Add the tile entity to the game world.
+			AddEntity(StateEntityVisible,
+				imgIndex, imgCol, imgRow,
+				tileW, tileH,
+				float64(i)*tileW, float64(j)*tileH,
+				1,
+				0,
+			)
+		}
+	}
+}
+
 // BoundingBox returns the left, top, right, bottom for entity i.
 func BoundingBox(i int) (l, t, r, b float64) {
 	l = Xs[i] - Ws[i]/2
