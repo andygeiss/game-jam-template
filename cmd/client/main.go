@@ -111,13 +111,6 @@ func main() {
 			}
 		}
 		engine.States[0] = s
-		// Hide the entity when dead.
-		for i := 1; i < len(engine.States); i++ {
-			s := engine.States[i]
-			if s&StateDead != 0 && s&engine.StateEntityAnimated == 0 {
-				engine.States[i] &^= engine.StateEntityVisible
-			}
-		}
 	})
 	// Ensure that the camera is centered on the player.
 	engine.CamTarget = 0
@@ -192,8 +185,8 @@ func killMonster(i int) {
 		engine.StateEntityMoveRight | engine.StateEntityMoveUp |
 		engine.StateEntityAnimatedLoop |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight)
-	// Mark as dead and start one-shot animation.
-	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityVisible
+	// Mark as dead and start one-shot animation (marked as auto-hide).
+	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityAutoHide | engine.StateEntityVisible
 	engine.States[i] = s
 	// Create a hit-stop at the 6th attack frame.
 	engine.Fos[0] = 5

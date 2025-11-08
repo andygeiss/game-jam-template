@@ -32,6 +32,7 @@ const (
 	// Only animated entities will receive frame updates.
 	StateEntityAnimated = uint64(1 << iota)
 	StateEntityAnimatedLoop
+	StateEntityAutoHide
 	StateEntityFaceDown
 	StateEntityFaceLeft
 	StateEntityFaceRight
@@ -453,6 +454,10 @@ func renderEntities(dt float64) {
 				// Remove animation state (if not looping).
 				if States[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
 					States[i] &= ^StateEntityAnimated
+					// Hide entity automatically after one-shot animation.
+					if States[i]&StateEntityAutoHide == StateEntityAutoHide {
+						States[i] &= ^StateEntityVisible
+					}
 				}
 			}
 		}
