@@ -200,8 +200,6 @@ func killMonster(i int) {
 	// Mark as dead + start one-shot animation + keep visible for the anim
 	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityVisible
 	engine.States[i] = s
-	engine.Fos[i] = 0
-	engine.Fts[i] = 0
 	// (optional) slight hit-stop feedback stays as you had it
 	engine.Fos[0] = 5
 	engine.HitStopRemaining = 200
