@@ -22,7 +22,10 @@ const (
 	CanvasWidth  = 640
 	CanvasHeight = 360
 	// Base speed for the entity movement.
-	EntitySpeed = 0.05
+	EntitySpeed = 0.1
+)
+
+const (
 	// An entity has different states which determine its behavior.
 	// The engine uses these states to provide basic functionality.
 	// Only visible entities will be rendered.

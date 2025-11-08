@@ -13,6 +13,7 @@ build: copy
 # Copy the assets into the server directory.
 copy:
     @cp assets/*.ogg cmd/server/assets/
+    @cp assets/*.wav cmd/server/assets/
     @cp assets/*.png cmd/server/assets/
 
 # Run the service.

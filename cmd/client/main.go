@@ -3,6 +3,7 @@
 package main
 
 import (
+	"math"
 	"template/internal/client/engine"
 )
 
@@ -14,18 +15,19 @@ const (
 )
 
 const (
-	indexImagePlayer = iota
+	indexImageSpritesheet = iota
 	indexImageTileset
 )
 
 const (
-	StateAttack = uint64(1 << (iota + 10))
+	StateAttack = uint64(1 << (iota + 16))
+	StateAggressive
 )
 
 func main() {
 	// Load the assets.
 	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png")
-	engine.LoadSounds("/assets/title.ogg")
+	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
 	// Load the state mapping.
 	engine.RowIndexMask = StateAttack |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
@@ -55,17 +57,20 @@ func main() {
 	}
 	// Add the entities.
 	addPlayer()
+	addMobs()
 	addTiles(tilemap)
 	// Start the game loop.
 	engine.Run(func(dt float64) {
 		// Play the title sound if it's not already playing.
-		engine.PlaySound(0, 0.25, true)
-		// Handle game-specific states.
+		engine.PlaySound(2, 0.25, true)
+		// Move aggressive monsters towards the player position.
+		moveMonsters(dt)
+		// Handle player-specific states.
 		s := engine.States[0]
 		if s&StateAttack == StateAttack {
 			if engine.Fos[0] == 3 {
 				engine.CamShakeMagnitude = 2.5
-				engine.CamShakeTime = 75
+				engine.CamShakeTime = 100
 				engine.Ss[0] = 3.0
 			}
 			if engine.Fos[0] == 7 {
@@ -78,14 +83,22 @@ func main() {
 			s |= StateAttack
 			engine.Fos[0] = 0
 			engine.Fts[0] = 0
+			engine.PlaySound(0, 1.0, false)
+		}
+		// Apply a hit window during attack frames 3..5.
+		if s&StateAttack == StateAttack && engine.Fos[0] >= 3 && engine.Fos[0] <= 5 {
+			for i := 1; i < len(engine.States); i++ {
+				if engine.States[i]&StateAggressive == StateAggressive &&
+					engine.States[i]&engine.StateEntityVisible == engine.StateEntityVisible {
+					if hasCollision(0, i) {
+						engine.PlaySound(1, 1.0, false)
+						killMonster(i)
+					}
+				}
+			}
 		}
 		engine.States[0] = s
 	})
-	// Make an animation by using 8 frames with a duration of 100 ms each frame.
-	// This is handled by the engine under the hood.
-	// Thus we only need to set the state.
-	engine.States[0] |= engine.StateEntityAnimated | engine.StateEntityAnimatedLoop |
-		engine.StateEntityFaceRight | engine.StateEntityIdle
 	// Ensure that the camera is centered on the player.
 	engine.CamTarget = 0
 	// Ensure that the camera position is within the world bounds.
@@ -94,10 +107,35 @@ func main() {
 	select {}
 }
 
+// addMobs adds monsters to the game world.
+func addMobs() {
+	const n = 10
+	const r = 500.0 // at least 300 px from the player
+	px, py := worldWidth/2, worldHeight/2
+	for i := 0; i < n; i++ {
+		ang := 2 * math.Pi * float64(i) / float64(n)
+		x := px + math.Cos(ang)*r
+		y := py + math.Sin(ang)*r
+		// If your monster frames are not at col 0 / row 6, adjust these two:
+		const monsterCol = 0
+		const monsterRow = 6
+		engine.AddEntity(
+			engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|
+				StateAggressive|engine.StateEntityVisible,
+			indexImageSpritesheet, monsterCol, monsterRow,
+			32, 32,
+			x, y,
+			1,
+			1,
+		)
+	}
+}
+
 // addPlayer adds the player entity to the game world.
 func addPlayer() {
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImagePlayer, 0, 0,
+	engine.AddEntity(engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|
+		engine.StateEntityFaceRight|engine.StateEntityIdle|engine.StateEntityVisible,
+		indexImageSpritesheet, 0, 0,
 		32, 32,
 		worldWidth/2, worldHeight/2,
 		1,
@@ -120,6 +158,55 @@ func addTiles(tiles []int) {
 				1,
 				0,
 			)
+		}
+	}
+}
+
+// boundingBox returns the bounding box for entity i.
+func boundingBox(i int) (l, t, r, b float64) {
+	l = engine.Xs[i] - engine.Ws[i]/2
+	t = engine.Ys[i] - engine.Hs[i]/2
+	r = l + engine.Ws[i]
+	b = t + engine.Hs[i]
+	return
+}
+
+// hasCollision returns true if entity i collides with entity j.
+func hasCollision(i, j int) bool {
+	il, it, ir, ib := boundingBox(i)
+	jl, jt, jr, jb := boundingBox(j)
+	return il < jr && ir > jl && it < jb && ib > jt
+}
+
+// killMonster stops rendering and updating this monster.
+func killMonster(i int) {
+	// Stop rendering and updating this monster.
+	engine.States[i] &^= (StateAggressive | engine.StateEntityVisible |
+		engine.StateEntityAnimated | engine.StateEntityAnimatedLoop |
+		engine.StateEntityMove | engine.StateEntityIdle |
+		engine.StateEntityMoveDown | engine.StateEntityMoveLeft |
+		engine.StateEntityMoveRight | engine.StateEntityMoveUp)
+	engine.As[i] = 0 // force invisible just in case
+	// Use a hit stop by using the 6th frame of the attack animation
+	// to make the hit more impactful.
+	engine.Fos[0] = 5
+	engine.HitStopRemaining = 200
+}
+
+// moveMonsters moves the monsters towards the player position.
+func moveMonsters(dt float64) {
+	px, py := engine.Xs[0], engine.Ys[0]
+	const pxPerMs = 0.05
+	for i := 1; i < len(engine.States); i++ {
+		if engine.States[i]&StateAggressive == StateAggressive {
+			dx := px - engine.Xs[i]
+			dy := py - engine.Ys[i]
+			dist := math.Sqrt(dx*dx + dy*dy)
+			if dist > 0 {
+				step := pxPerMs * dt
+				engine.Xs[i] += (dx / dist) * step
+				engine.Ys[i] += (dy / dist) * step
+			}
 		}
 	}
 }
