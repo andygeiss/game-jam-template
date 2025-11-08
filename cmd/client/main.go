@@ -19,6 +19,7 @@ const (
 const (
 	indexImageSpritesheet = iota
 	indexImageTileset
+	indexImageUi
 )
 
 const (
@@ -40,7 +41,7 @@ const (
 
 func main() {
 	// Load the assets.
-	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png")
+	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png")
 	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
 	// Load the state mapping.
 	engine.RowIndexMask = StateAttack | StateDead |
@@ -71,7 +72,8 @@ func main() {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	}
 	// Add the entities.
-	addPlayer()
+	addPlayer() // entity 0
+	addUi()     // entity 1
 	addMobs()
 	engine.AddTilemap(indexImageTileset, tiles, cols, rows, tileW, tileH)
 	// Start the game loop.
@@ -160,6 +162,18 @@ func addPlayer() {
 		1,
 		1,
 	)
+}
+
+// addUi adds the UI entity to the game world.
+func addUi() {
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 0, 0,
+		640, 360,
+		float64(engine.CanvasWidth)/2, float64(engine.CanvasHeight)/2,
+		1,
+		999,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true) // safer than hardcoding 1
 }
 
 // killMonster stops rendering and updating this monster.

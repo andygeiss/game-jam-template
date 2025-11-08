@@ -75,12 +75,13 @@ var (
 	As     []float64 // alpha (opacity)
 	Fos    []int     // frame offsets.
 	Fts    []float64 // frame times.
+	Hs     []float64 // sprite height
 	Ics    []int     // image col
 	Irs    []int     // image row
 	Iis    []int     // image index
 	Ss     []float64 // sprite speed factor
+	Uis    []bool    // render as UI
 	Ws     []float64 // sprite width
-	Hs     []float64 // sprite height
 	Xs     []float64 // entity x position
 	Ys     []float64 // entity y position
 	Zs     []int     // entity layer index
@@ -117,6 +118,7 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	Irs = append(Irs, imgRow)
 	Ss = append(Ss, 1.0)
 	States = append(States, state)
+	Uis = append(Uis, false) // default = world-space
 	Ws = append(Ws, w)
 	Xs = append(Xs, x)
 	Ys = append(Ys, y)
@@ -193,6 +195,11 @@ func PlaySound(index int, volume float64, loop bool) {
 		sounds[index].Set("volume", volume)
 		sounds[index].Call("play")
 	}
+}
+
+// SetScreenSpace sets the entity at the given index to be in screen space or world space.
+func SetScreenSpace(i int, screenSpace bool) {
+	Uis[i] = screenSpace
 }
 
 // StopSound stops a sound from the given index.
@@ -279,10 +286,12 @@ func Run(updateScene func(dt float64)) {
 		ty := math.Round(oy)
 		ctx.Call("save")
 		ctx.Call("translate", tx, ty)
-		// Render the entities on the canvas.
-		renderEntities(dt)
+		// Render the entities within the world-space.
+		renderEntities(dt, false)
 		// Undo the camera transform to display UI elements.
 		ctx.Call("restore")
+		// Render the UI elements.
+		renderEntities(dt, true)
 		// Show "Click to start the game" message if there is no player input.
 		// We need a player input to play sound effects (security reason).
 		if !HasPlayerInput {
@@ -411,7 +420,9 @@ func isFullscreen() bool {
 }
 
 // renderEntities renders the entities on the canvas.
-func renderEntities(dt float64) {
+// Sprites and tiles will be rendered in the world-space.
+// UI entities will be rendered in the screen-space (if true).
+func renderEntities(dt float64, screenSpace bool) {
 	// Sort the entities based on their draw order (Painter's algorithm).
 	sort.SliceStable(drawOrder, func(a, b int) bool {
 		ai := drawOrder[a]
@@ -433,12 +444,24 @@ func renderEntities(dt float64) {
 		return ai < bi
 	})
 	// Calculate viewport dimensions.
+	// UI uses screen-space culling.
+	// World-space uses camera
 	vw, vh := float64(CanvasWidth), float64(CanvasHeight)
-	vLeft, vTop := camX-camShakeX, camY-camShakeY
-	vRight, vBottom := vLeft+vw, vTop+vh
+	var vLeft, vTop, vRight, vBottom float64
+	if screenSpace {
+		vLeft, vTop, vRight, vBottom = 0, 0, vw, vh
+	} else {
+		vLeft, vTop = camX-camShakeX, camY-camShakeY
+		vRight, vBottom = vLeft+vw, vTop+vh
+	}
 	// Draw the entities with Z+Y sorting.
 	alpha := 1.0
 	for _, i := range drawOrder {
+		// Skip UI elements or invisible entities.
+		if Uis[i] != screenSpace ||
+			States[i]&StateEntityVisible != StateEntityVisible {
+			continue
+		}
 		img := images[Iis[i]]
 		// Skip entities without loaded images.
 		if !img.Truthy() {
@@ -489,6 +512,9 @@ func renderEntities(dt float64) {
 		ctx.Call("drawImage", img,
 			srcX, srcY, Ws[i], Hs[i],
 			dstX, dstY, Ws[i], Hs[i])
+	}
+	if alpha != 1.0 {
+		ctx.Set("globalAlpha", 1.0)
 	}
 }
 
