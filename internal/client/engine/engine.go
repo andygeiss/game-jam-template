@@ -124,6 +124,22 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	drawOrder = append(drawOrder, len(States)-1)
 }
 
+// BoundingBox returns the left, top, right, bottom for entity i.
+func BoundingBox(i int) (l, t, r, b float64) {
+	l = Xs[i] - Ws[i]/2
+	t = Ys[i] - Hs[i]/2
+	r = l + Ws[i]
+	b = t + Hs[i]
+	return
+}
+
+// HasCollision returns true if entity i collides with entity j.
+func HasCollision(i, j int) bool {
+	il, it, ir, ib := BoundingBox(i)
+	jl, jt, jr, jb := BoundingBox(j)
+	return il < jr && ir > jl && it < jb && ib > jt
+}
+
 // LoadImages loads an image from the given path.
 func LoadImages(paths ...string) {
 	for _, path := range paths {

@@ -103,7 +103,7 @@ func main() {
 			for i := 1; i < len(engine.States); i++ {
 				if engine.States[i]&StateAggressive == StateAggressive &&
 					engine.States[i]&engine.StateEntityVisible == engine.StateEntityVisible {
-					if hasCollision(0, i) {
+					if engine.HasCollision(0, i) {
 						engine.PlaySound(1, 1.0, false)
 						killMonster(i)
 					}
@@ -180,22 +180,6 @@ func addTiles(tiles []int) {
 			)
 		}
 	}
-}
-
-// boundingBox returns the bounding box for entity i.
-func boundingBox(i int) (l, t, r, b float64) {
-	l = engine.Xs[i] - engine.Ws[i]/2
-	t = engine.Ys[i] - engine.Hs[i]/2
-	r = l + engine.Ws[i]
-	b = t + engine.Hs[i]
-	return
-}
-
-// hasCollision returns true if entity i collides with entity j.
-func hasCollision(i, j int) bool {
-	il, it, ir, ib := boundingBox(i)
-	jl, jt, jr, jb := boundingBox(j)
-	return il < jr && ir > jl && it < jb && ib > jt
 }
 
 // killMonster stops rendering and updating this monster.
