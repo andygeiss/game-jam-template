@@ -20,6 +20,17 @@ const (
 )
 
 const (
+	indexRowIdleRight = iota
+	indexRowIdleLeft
+	indexRowMoveRight
+	indexRowMoveLeft
+	indexRowAttackRight
+	indexRowAttackLeft
+	indexRowMonsterMove
+	indexRowDeath
+)
+
+const (
 	StateAttack = uint64(1 << (iota + 16))
 	StateAggressive
 	StateDead
@@ -34,13 +45,13 @@ func main() {
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
 		engine.StateEntityIdle | engine.StateEntityMove
 	engine.RowIndexForState = map[uint64]int{
-		engine.StateEntityFaceRight | StateAttack:            4,
-		engine.StateEntityFaceLeft | StateAttack:             5,
-		engine.StateEntityFaceRight | engine.StateEntityIdle: 0,
-		engine.StateEntityFaceLeft | engine.StateEntityIdle:  1,
-		engine.StateEntityFaceRight | engine.StateEntityMove: 2,
-		engine.StateEntityFaceLeft | engine.StateEntityMove:  3,
-		StateDead: 7,
+		engine.StateEntityFaceRight | StateAttack:            indexRowAttackRight,
+		engine.StateEntityFaceLeft | StateAttack:             indexRowAttackLeft,
+		engine.StateEntityFaceRight | engine.StateEntityIdle: indexRowIdleRight,
+		engine.StateEntityFaceLeft | engine.StateEntityIdle:  indexRowIdleLeft,
+		engine.StateEntityFaceRight | engine.StateEntityMove: indexRowMoveRight,
+		engine.StateEntityFaceLeft | engine.StateEntityMove:  indexRowMoveLeft,
+		StateDead: indexRowDeath,
 	}
 	// Set the tilemap.
 	tilemap := []int{
@@ -197,10 +208,10 @@ func killMonster(i int) {
 		engine.StateEntityMoveRight | engine.StateEntityMoveUp |
 		engine.StateEntityAnimatedLoop |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight)
-	// Mark as dead + start one-shot animation + keep visible for the anim
+	// Mark as dead and start one-shot animation.
 	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityVisible
 	engine.States[i] = s
-	// (optional) slight hit-stop feedback stays as you had it
+	// Create a hit-stop at the 6th attack frame.
 	engine.Fos[0] = 5
 	engine.HitStopRemaining = 200
 }
