@@ -572,23 +572,24 @@ func updateStates(dt float64) {
 		if s&StateEntityMoveDown != 0 {
 			vy += 1
 		}
-		// Normalize (fix diagonal boost) and move.
+		// Clear idle and set move state if moving.
+		// Normalize the velocity and use the sprite speed factor.
 		if n := vx*vx + vy*vy; n > 0 {
 			inv := 1.0 / math.Sqrt(n)
-			sf := Ss[i] // sprite speed factor
+			sf := Ss[i]
 			vx *= inv * sf
 			vy *= inv * sf
 			Xs[i] += vx * EntitySpeed * dt
 			Ys[i] += vy * EntitySpeed * dt
-			// Clear idle and set move state.
 			s &^= StateEntityIdle
 			s |= StateEntityMove
 		} else {
-			// Clear Move and set idle state.
+			// Clear move and set idle state if not moving.
 			s &^= StateEntityMove
 			s |= StateEntityIdle
 		}
-		// Switch spritesheet row via game-provided mapping.
+		// Switch spritesheet row if there is an external action
+		// by using the provided lookup table.
 		key := s & RowIndexMask
 		externalAction := key &^ (StateEntityFaceLeft | StateEntityFaceRight | StateEntityIdle | StateEntityMove)
 		if externalAction != 0 {

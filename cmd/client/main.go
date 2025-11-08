@@ -3,7 +3,6 @@
 package main
 
 import (
-	"math"
 	"template/internal/client/engine"
 )
 
@@ -15,19 +14,8 @@ const (
 )
 
 const (
-	invSqrt2 = 1.0 / math.Sqrt2
-)
-
-const (
 	indexImagePlayer = iota
 	indexImageTileset
-)
-
-const (
-	imgRowIdleRight = iota
-	imgRowIdleLeft
-	imgRowMoveRight
-	imgRowMoveLeft
 )
 
 const (
