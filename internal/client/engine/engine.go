@@ -51,7 +51,7 @@ var (
 	CamShakeMagnitude float64
 	CamShakeTime      float64
 	CamTarget         int // -1 no target
-	hasPlayerInput    bool
+	HasPlayerInput    bool
 	HitStopRemaining  float64
 	Key1              bool
 	Key2              bool
@@ -188,9 +188,6 @@ func LoadSounds(paths ...string) {
 
 // PlaySound plays a sound from the given index.
 func PlaySound(index int, volume float64, loop bool) {
-	if !hasPlayerInput {
-		return
-	}
 	if sounds[index].Truthy() && sounds[index].Get("paused").Bool() {
 		sounds[index].Set("loop", loop)
 		sounds[index].Set("volume", volume)
@@ -200,9 +197,6 @@ func PlaySound(index int, volume float64, loop bool) {
 
 // StopSound stops a sound from the given index.
 func StopSound(index int) {
-	if !hasPlayerInput {
-		return
-	}
 	if sounds[index].Truthy() && !sounds[index].Get("paused").Bool() {
 		sounds[index].Set("currentTime", 0)
 		sounds[index].Call("pause")
@@ -291,7 +285,7 @@ func Run(updateScene func(dt float64)) {
 		ctx.Call("restore")
 		// Show "Click to start the game" message if there is no player input.
 		// We need a player input to play sound effects (security reason).
-		if !hasPlayerInput {
+		if !HasPlayerInput {
 			ctx.Set("fillStyle", "white")
 			ctx.Set("font", "24px Arial")
 			ctx.Set("textAlign", "center")
@@ -333,8 +327,8 @@ func addEventListeners() {
 		target.Call("addEventListener", event, js.FuncOf(func(this js.Value, args []js.Value) any {
 			// Important: We cannot play audio until the user has interacted once.
 			// Thus we use this flag later to determine if we can play audio.
-			if (event == "keydown" || event == "mousedown") && !hasPlayerInput {
-				hasPlayerInput = true
+			if (event == "keydown" || event == "mousedown") && !HasPlayerInput {
+				HasPlayerInput = true
 			}
 			// Handle the event based on its type.
 			switch event {

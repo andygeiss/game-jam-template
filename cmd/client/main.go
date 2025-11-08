@@ -76,6 +76,10 @@ func main() {
 	engine.AddTilemap(indexImageTileset, tiles, cols, rows, tileW, tileH)
 	// Start the game loop.
 	engine.Run(func(dt float64) {
+		// Skip game updates if there is no player input.
+		if !engine.HasPlayerInput {
+			return
+		}
 		// Play the title sound if it's not already playing.
 		engine.PlaySound(2, 0.25, true)
 		// Move aggressive monsters towards the player position.
