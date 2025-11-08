@@ -22,6 +22,7 @@ const (
 const (
 	StateAttack = uint64(1 << (iota + 16))
 	StateAggressive
+	StateDead
 )
 
 func main() {
@@ -29,7 +30,7 @@ func main() {
 	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png")
 	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
 	// Load the state mapping.
-	engine.RowIndexMask = StateAttack |
+	engine.RowIndexMask = StateAttack | StateDead |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
 		engine.StateEntityIdle | engine.StateEntityMove
 	engine.RowIndexForState = map[uint64]int{
@@ -39,6 +40,7 @@ func main() {
 		engine.StateEntityFaceLeft | engine.StateEntityIdle:  1,
 		engine.StateEntityFaceRight | engine.StateEntityMove: 2,
 		engine.StateEntityFaceLeft | engine.StateEntityMove:  3,
+		StateDead: 7,
 	}
 	// Set the tilemap.
 	tilemap := []int{
@@ -85,8 +87,8 @@ func main() {
 			engine.Fts[0] = 0
 			engine.PlaySound(0, 1.0, false)
 		}
-		// Apply a hit window during attack frames 3..5.
-		if s&StateAttack == StateAttack && engine.Fos[0] >= 3 && engine.Fos[0] <= 5 {
+		// Apply a hit window during attack frames 4..6.
+		if s&StateAttack == StateAttack && engine.Fos[0] >= 4 && engine.Fos[0] <= 6 {
 			for i := 1; i < len(engine.States); i++ {
 				if engine.States[i]&StateAggressive == StateAggressive &&
 					engine.States[i]&engine.StateEntityVisible == engine.StateEntityVisible {
@@ -98,6 +100,13 @@ func main() {
 			}
 		}
 		engine.States[0] = s
+		// Hide the entity when dead.
+		for i := 1; i < len(engine.States); i++ {
+			s := engine.States[i]
+			if s&StateDead != 0 && s&engine.StateEntityAnimated == 0 {
+				engine.States[i] &^= engine.StateEntityVisible
+			}
+		}
 	})
 	// Ensure that the camera is centered on the player.
 	engine.CamTarget = 0
@@ -180,15 +189,20 @@ func hasCollision(i, j int) bool {
 
 // killMonster stops rendering and updating this monster.
 func killMonster(i int) {
-	// Stop rendering and updating this monster.
-	engine.States[i] &^= (StateAggressive | engine.StateEntityVisible |
-		engine.StateEntityAnimated | engine.StateEntityAnimatedLoop |
+	s := engine.States[i]
+	// Remove behavior & movement, faces and loops.
+	s &^= (StateAggressive |
 		engine.StateEntityMove | engine.StateEntityIdle |
 		engine.StateEntityMoveDown | engine.StateEntityMoveLeft |
-		engine.StateEntityMoveRight | engine.StateEntityMoveUp)
-	engine.As[i] = 0 // force invisible just in case
-	// Use a hit stop by using the 6th frame of the attack animation
-	// to make the hit more impactful.
+		engine.StateEntityMoveRight | engine.StateEntityMoveUp |
+		engine.StateEntityAnimatedLoop |
+		engine.StateEntityFaceLeft | engine.StateEntityFaceRight)
+	// Mark as dead + start one-shot animation + keep visible for the anim
+	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityVisible
+	engine.States[i] = s
+	engine.Fos[i] = 0
+	engine.Fts[i] = 0
+	// (optional) slight hit-stop feedback stays as you had it
 	engine.Fos[0] = 5
 	engine.HitStopRemaining = 200
 }
