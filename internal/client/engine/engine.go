@@ -299,7 +299,7 @@ func Run(updateScene func(dt float64)) {
 			ctx.Set("font", "24px Arial")
 			ctx.Set("textAlign", "center")
 			ctx.Set("textBaseline", "middle")
-			ctx.Call("fillText", "Click to start the game", CanvasWidth/2, CanvasHeight/2+80)
+			ctx.Call("fillText", "Click to start the game", CanvasWidth/2, CanvasHeight/2)
 		}
 		// Call the loop function recursively.
 		js.Global().Call("requestAnimationFrame", loopFn)

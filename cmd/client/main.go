@@ -99,7 +99,7 @@ func main() {
 				engine.Ss[0] = 1.0
 			}
 		}
-		if engine.KeyE && s&StateAttack != StateAttack {
+		if engine.KeyQ && s&StateAttack != StateAttack {
 			s &= ^engine.StateEntityIdle
 			s |= StateAttack
 			engine.Fos[0] = 0
@@ -166,14 +166,145 @@ func addPlayer() {
 
 // addUi adds the UI entity to the game world.
 func addUi() {
+	// Add the W button.
 	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 0, 0,
-		640, 360,
-		float64(engine.CanvasWidth)/2, float64(engine.CanvasHeight)/2,
+		indexImageUi, 3, 0,
+		32, 32,
+		engine.CanvasWidth/2-112, engine.CanvasHeight-80,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 0, 3,
+		32, 32,
+		engine.CanvasWidth/2-112, engine.CanvasHeight-80,
 		1,
 		999,
 	)
-	engine.SetScreenSpace(len(engine.States)-1, true) // safer than hardcoding 1
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	// Add the A button.
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 3, 0,
+		32, 32,
+		engine.CanvasWidth/2-112-32, engine.CanvasHeight-56,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 1, 3,
+		32, 32,
+		engine.CanvasWidth/2-112-32, engine.CanvasHeight-56,
+		1,
+		999,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	// Add the S button.
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 3, 0,
+		32, 32,
+		engine.CanvasWidth/2-112, engine.CanvasHeight-32,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 2, 3,
+		32, 32,
+		engine.CanvasWidth/2-112, engine.CanvasHeight-32,
+		1,
+		999,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	// Add the D button.
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 3, 0,
+		32, 32,
+		engine.CanvasWidth/2-112+32, engine.CanvasHeight-56,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 3, 3,
+		32, 32,
+		engine.CanvasWidth/2-112+32, engine.CanvasHeight-56,
+		1,
+		999,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	// Add the player UI.
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 0, 0,
+		96, 32,
+		engine.CanvasWidth/2, engine.CanvasHeight-32,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 0, 2,
+		16, 16,
+		engine.CanvasWidth/2-32, engine.CanvasHeight-32,
+		1,
+		999,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	// Add 3 lives.
+	for i := 0; i < 4; i++ {
+		engine.AddEntity(engine.StateEntityVisible,
+			indexImageUi, 5, 2,
+			16, 16,
+			engine.CanvasWidth/2-16+float64(i*16), engine.CanvasHeight-32,
+			1,
+			999,
+		)
+		engine.SetScreenSpace(len(engine.States)-1, true)
+	}
+	// Add 1. attack button.
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 3, 0,
+		32, 32,
+		engine.CanvasWidth/2-32, engine.CanvasHeight-80,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 0, 2,
+		32, 32,
+		engine.CanvasWidth/2-32, engine.CanvasHeight-80,
+		1,
+		999,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	// Add 2. attack button.
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 3, 0,
+		32, 32,
+		engine.CanvasWidth/2, engine.CanvasHeight-80,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 1, 2,
+		32, 32,
+		engine.CanvasWidth/2, engine.CanvasHeight-80,
+		1,
+		999,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
+	// Add 3. attack button.
+	engine.AddEntity(engine.StateEntityVisible,
+		indexImageUi, 3, 0,
+		32, 32,
+		engine.CanvasWidth/2+32, engine.CanvasHeight-80,
+		1,
+		990,
+	)
+	engine.SetScreenSpace(len(engine.States)-1, true)
 }
 
 // killMonster stops rendering and updating this monster.
