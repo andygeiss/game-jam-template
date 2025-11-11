@@ -128,20 +128,25 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 }
 
 // AddTilemap creates a grid of tile entities from a flat index array.
-func AddTilemap(imgIndex int, tiles []int, cols, rows int, tileW, tileH float64) {
-	for i := 0; i < cols; i++ {
-		for j := 0; j < rows; j++ {
-			// Calculate the image column and row based on the tile index.
-			imgCol := tiles[i*rows+j] / cols
-			imgRow := tiles[i*rows+j] % cols
-			// Add the tile entity to the game world.
-			AddEntity(StateEntityVisible,
-				imgIndex, imgCol, imgRow,
-				tileW, tileH,
-				float64(i)*tileW, float64(j)*tileH,
-				1,
-				0,
-			)
+func AddTilemap(imgIndex int, tiles []int, tilemapCols, tilemapRows, tilesetCols, tilesetRows int, tileW, tileH float64) {
+	maxTile := tilesetCols * tilesetRows
+	for j := 0; j < tilemapRows; j++ {
+		for i := 0; i < tilemapCols; i++ {
+			idx := j*tilemapCols + i // index in the tilemap
+			if idx < 0 || idx >= len(tiles) {
+				continue
+			}
+			t := tiles[idx] // index in the tileset (0..maxTile-1)
+			if t < 0 || t >= maxTile {
+				// allow -1 for "empty", or skip invalid tiles
+				continue
+			}
+			imgCol := t % tilesetCols
+			imgRow := t / tilesetCols
+			// Place tiles on grid centers (engine draws centered).
+			x := float64(i)*tileW + tileW/2
+			y := float64(j)*tileH + tileH/2
+			AddEntity(StateEntityVisible, imgIndex, imgCol, imgRow, tileW, tileH, x, y, 1, 0)
 		}
 	}
 }
