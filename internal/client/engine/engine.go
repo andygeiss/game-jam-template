@@ -151,6 +151,14 @@ func AddTilemap(imgIndex int, tiles []int, tilemapCols, tilemapRows, tilesetCols
 	}
 }
 
+// AddUI adds a UI (screen-space) entity and returns its index.
+func AddUI(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) int {
+	AddEntity(state, imgIndex, imgCol, imgRow, w, h, x, y, alpha, z) // existing helper
+	i := len(States) - 1
+	SetScreenSpace(i, true) // flips to screen-space
+	return i
+}
+
 // BoundingBox returns the left, top, right, bottom for entity i.
 func BoundingBox(i int) (l, t, r, b float64) {
 	l = Xs[i] - Ws[i]/2

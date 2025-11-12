@@ -153,11 +153,8 @@ func addMobs() {
 		engine.AddEntity(
 			engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|
 				StateAggressive|engine.StateEntityVisible,
-			indexImageSpritesheet, monsterCol, monsterRow,
-			32, 32,
-			x, y,
-			1,
-			1,
+			indexImageSpritesheet, monsterCol, monsterRow, 32, 32,
+			x, y, 1, 1,
 		)
 	}
 }
@@ -166,155 +163,39 @@ func addMobs() {
 func addPlayer() {
 	engine.AddEntity(engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|
 		engine.StateEntityFaceRight|engine.StateEntityIdle|engine.StateEntityVisible,
-		indexImageSpritesheet, 0, 0,
-		32, 32,
-		worldW/2, worldH/2,
-		1,
-		1,
+		indexImageSpritesheet, 0, 0, 32, 32,
+		worldW/2, worldH/2, 1, 1,
 	)
 }
 
 // addUi adds the UI entity to the game world.
 func addUi() {
-	// Add the W button.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 0,
-		32, 32,
-		engine.CanvasWidth/2-112, engine.CanvasHeight-80,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 0, 3,
-		32, 32,
-		engine.CanvasWidth/2-112, engine.CanvasHeight-80,
-		1,
-		999,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	// Add the A button.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 0,
-		32, 32,
-		engine.CanvasWidth/2-112-32, engine.CanvasHeight-56,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 1, 3,
-		32, 32,
-		engine.CanvasWidth/2-112-32, engine.CanvasHeight-56,
-		1,
-		999,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	// Add the S button.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 0,
-		32, 32,
-		engine.CanvasWidth/2-112, engine.CanvasHeight-32,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 2, 3,
-		32, 32,
-		engine.CanvasWidth/2-112, engine.CanvasHeight-32,
-		1,
-		999,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	// Add the D button.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 0,
-		32, 32,
-		engine.CanvasWidth/2-112+32, engine.CanvasHeight-56,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 3,
-		32, 32,
-		engine.CanvasWidth/2-112+32, engine.CanvasHeight-56,
-		1,
-		999,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	// Add the player UI.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 0, 0,
-		96, 32,
-		64, 32,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 0, 2,
-		16, 16,
-		32, 32,
-		1,
-		999,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	// Add 3 lives.
-	for i := 0; i < 4; i++ {
-		engine.AddEntity(engine.StateEntityVisible,
-			indexImageUi, 5, 2,
-			16, 16,
-			48+float64(i*16), 32,
-			1,
-			999,
-		)
-		engine.SetScreenSpace(len(engine.States)-1, true)
+	center := float64(engine.CanvasWidth / 2)
+	baseY := float64(engine.CanvasHeight)
+	// Define local inline helpers.
+	ui := func(imgCol, imgRow int, w, h, x, y float64, z int) int {
+		return engine.AddUI(engine.StateEntityVisible, indexImageUi, imgCol, imgRow, w, h, x, y, 1, z)
 	}
-	// Add 1. attack button.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 0,
-		32, 32,
-		engine.CanvasWidth/2+112-32, engine.CanvasHeight-56,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 0, 2,
-		32, 32,
-		engine.CanvasWidth/2+112-32, engine.CanvasHeight-56,
-		1,
-		999,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	// Add 2. attack button.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 0,
-		32, 32,
-		engine.CanvasWidth/2+112, engine.CanvasHeight-56,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 1, 2,
-		32, 32,
-		engine.CanvasWidth/2+112, engine.CanvasHeight-56,
-		1,
-		999,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
-	// Add 3. attack button.
-	engine.AddEntity(engine.StateEntityVisible,
-		indexImageUi, 3, 0,
-		32, 32,
-		engine.CanvasWidth/2+112+32, engine.CanvasHeight-56,
-		1,
-		990,
-	)
-	engine.SetScreenSpace(len(engine.States)-1, true)
+	uiButton := func(bgCol, bgRow, iconCol, iconRow int, x, y float64) {
+		ui(bgCol, bgRow, 32, 32, x, y, 990)
+		ui(iconCol, iconRow, 32, 32, x, y, 999)
+	}
+	// Add the WASD cluster.
+	uiButton(3, 0, 0, 3, center-112, baseY-80)    // W
+	uiButton(3, 0, 1, 3, center-112-32, baseY-56) // A
+	uiButton(3, 0, 2, 3, center-112, baseY-32)    // S
+	uiButton(3, 0, 3, 3, center-112+32, baseY-56) // D
+	// Add the player UI bar + portrait.
+	ui(0, 0, 96, 32, 64, 32, 990)
+	ui(0, 2, 16, 16, 32, 32, 999)
+	// Add the player lives.
+	for i := 0; i < 4; i++ {
+		ui(5, 2, 16, 16, 48+float64(i*16), 32, 999)
+	}
+	// Add the player attack buttons.
+	uiButton(3, 0, 0, 2, center+112-32, baseY-56)
+	uiButton(3, 0, 1, 2, center+112, baseY-56)
+	ui(3, 0, 32, 32, center+112+32, baseY-56, 990) // third slot background only
 }
 
 // killMonster stops rendering and updating this monster.
