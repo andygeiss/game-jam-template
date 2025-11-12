@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	tilemapCols = 22
-	tilemapRows = 12
+	tilemapCols = 32
+	tilemapRows = 20
 	tilesetCols = 3
 	tilesetRows = 3
 	tileW       = 32
@@ -60,18 +60,26 @@ func main() {
 	}
 	// Set the tilemap.
 	tiles := []int{
-		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
+		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
 	}
 	// Add the entities.
 	addPlayer() // entity 0
@@ -240,7 +248,7 @@ func addUi() {
 	engine.AddEntity(engine.StateEntityVisible,
 		indexImageUi, 0, 0,
 		96, 32,
-		engine.CanvasWidth/2, engine.CanvasHeight-32,
+		64, 32,
 		1,
 		990,
 	)
@@ -248,7 +256,7 @@ func addUi() {
 	engine.AddEntity(engine.StateEntityVisible,
 		indexImageUi, 0, 2,
 		16, 16,
-		engine.CanvasWidth/2-32, engine.CanvasHeight-32,
+		32, 32,
 		1,
 		999,
 	)
@@ -258,7 +266,7 @@ func addUi() {
 		engine.AddEntity(engine.StateEntityVisible,
 			indexImageUi, 5, 2,
 			16, 16,
-			engine.CanvasWidth/2-16+float64(i*16), engine.CanvasHeight-32,
+			48+float64(i*16), 32,
 			1,
 			999,
 		)
@@ -268,7 +276,7 @@ func addUi() {
 	engine.AddEntity(engine.StateEntityVisible,
 		indexImageUi, 3, 0,
 		32, 32,
-		engine.CanvasWidth/2-32, engine.CanvasHeight-80,
+		engine.CanvasWidth/2+112-32, engine.CanvasHeight-56,
 		1,
 		990,
 	)
@@ -276,7 +284,7 @@ func addUi() {
 	engine.AddEntity(engine.StateEntityVisible,
 		indexImageUi, 0, 2,
 		32, 32,
-		engine.CanvasWidth/2-32, engine.CanvasHeight-80,
+		engine.CanvasWidth/2+112-32, engine.CanvasHeight-56,
 		1,
 		999,
 	)
@@ -285,7 +293,7 @@ func addUi() {
 	engine.AddEntity(engine.StateEntityVisible,
 		indexImageUi, 3, 0,
 		32, 32,
-		engine.CanvasWidth/2, engine.CanvasHeight-80,
+		engine.CanvasWidth/2+112, engine.CanvasHeight-56,
 		1,
 		990,
 	)
@@ -293,7 +301,7 @@ func addUi() {
 	engine.AddEntity(engine.StateEntityVisible,
 		indexImageUi, 1, 2,
 		32, 32,
-		engine.CanvasWidth/2, engine.CanvasHeight-80,
+		engine.CanvasWidth/2+112, engine.CanvasHeight-56,
 		1,
 		999,
 	)
@@ -302,7 +310,7 @@ func addUi() {
 	engine.AddEntity(engine.StateEntityVisible,
 		indexImageUi, 3, 0,
 		32, 32,
-		engine.CanvasWidth/2+32, engine.CanvasHeight-80,
+		engine.CanvasWidth/2+112+32, engine.CanvasHeight-56,
 		1,
 		990,
 	)
