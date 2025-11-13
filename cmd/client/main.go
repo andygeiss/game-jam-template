@@ -141,7 +141,7 @@ func main() {
 // addMobs adds monsters to the game world.
 func addMobs() {
 	const n = 10
-	const r = 500.0 // at least 300 px from the player
+	const r = 500.0
 	px, py := worldW/2, worldH/2
 	for i := 0; i < n; i++ {
 		ang := 2 * math.Pi * float64(i) / float64(n)
@@ -213,7 +213,7 @@ func killMonster(i int) {
 	engine.States[i] = s
 	// Create a hit-stop at the 6th attack frame of the player's attack animation.
 	engine.Fos[0] = 5
-	engine.HitStopRemaining = 200
+	engine.HitStopRemaining = 70
 }
 
 // moveMonsters moves the monsters towards the player position.
