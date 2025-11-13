@@ -45,10 +45,12 @@ func main() {
 	// Load the assets.
 	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png")
 	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
+
 	// Load the state mapping.
 	engine.RowIndexMask = StateAttack | StateDead |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
 		engine.StateEntityIdle | engine.StateEntityMove
+
 	engine.RowIndexForState = map[uint64]int{
 		engine.StateEntityFaceRight | StateAttack:            indexRowAttackRight,
 		engine.StateEntityFaceLeft | StateAttack:             indexRowAttackLeft,
@@ -58,6 +60,7 @@ func main() {
 		engine.StateEntityFaceLeft | engine.StateEntityMove:  indexRowMoveLeft,
 		StateDead: indexRowDeath,
 	}
+
 	// Set the tilemap.
 	tiles := []int{
 		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
@@ -81,59 +84,38 @@ func main() {
 		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
 		6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
 	}
+
 	// Add the entities.
 	addPlayer() // entity 0
 	addUi()     // entity 1
 	addMobs()
 	engine.AddTilemap(indexImageTileset, tiles, tilemapCols, tilemapRows, tilesetCols, tilesetRows, tileW, tileH)
+
 	// Start the game loop.
 	engine.Run(func(dt float64) {
 		// Skip game updates if there is no player input.
 		if !engine.HasPlayerInput {
 			return
 		}
+
 		// Play the title sound if it's not already playing.
 		engine.PlaySound(2, 0.25, true)
+
 		// Move aggressive monsters towards the player position.
 		moveMonsters(dt)
+
 		// Handle player-specific states.
 		s := engine.States[0]
-		if s&StateAttack == StateAttack {
-			if engine.Fos[0] == 3 {
-				engine.CamShakeMagnitude = 2.5
-				engine.CamShakeTime = 100
-				engine.Ss[0] = 3.0
-			}
-			if engine.Fos[0] == 7 {
-				s &= ^StateAttack
-				engine.Ss[0] = 1.0
-			}
-		}
-		if engine.KeyQ && s&StateAttack != StateAttack {
-			s &= ^engine.StateEntityIdle
-			s |= StateAttack
-			engine.Fos[0] = 0
-			engine.Fts[0] = 0
-			engine.PlaySound(0, 1.0, false)
-		}
-		// Apply a hit window during attack frames 4..6.
-		if s&StateAttack == StateAttack && engine.Fos[0] >= 4 && engine.Fos[0] <= 6 {
-			for i := 1; i < len(engine.States); i++ {
-				if engine.States[i]&StateAggressive == StateAggressive &&
-					engine.States[i]&engine.StateEntityVisible == engine.StateEntityVisible {
-					if engine.HasCollision(0, i) {
-						engine.PlaySound(1, 1.0, false)
-						killMonster(i)
-					}
-				}
-			}
-		}
+		s = handleAttack(s)
 		engine.States[0] = s
 	})
+
 	// Ensure that the camera is centered on the player.
 	engine.CamTarget = 0
+
 	// Ensure that the camera position is within the world bounds.
 	engine.SetWorldSize(worldW, worldH)
+
 	// Prevent the Go runtime from exiting.
 	select {}
 }
@@ -147,6 +129,7 @@ func addMobs() {
 		ang := 2 * math.Pi * float64(i) / float64(n)
 		x := px + math.Cos(ang)*r
 		y := py + math.Sin(ang)*r
+
 		// If your monster frames are not at col 0 / row 6, adjust these two:
 		const monsterCol = 0
 		const monsterRow = 6
@@ -172,6 +155,7 @@ func addPlayer() {
 func addUi() {
 	center := float64(engine.CanvasWidth / 2)
 	baseY := float64(engine.CanvasHeight)
+
 	// Define local inline helpers.
 	ui := func(imgCol, imgRow int, w, h, x, y float64, z int) int {
 		return engine.AddUI(engine.StateEntityVisible, indexImageUi, imgCol, imgRow, w, h, x, y, 1, z)
@@ -180,27 +164,71 @@ func addUi() {
 		ui(bgCol, bgRow, 32, 32, x, y, 990)
 		ui(iconCol, iconRow, 32, 32, x, y, 999)
 	}
+
 	// Add the WASD cluster.
 	uiButton(3, 0, 0, 3, center-112, baseY-80)    // W
 	uiButton(3, 0, 1, 3, center-112-32, baseY-56) // A
 	uiButton(3, 0, 2, 3, center-112, baseY-32)    // S
 	uiButton(3, 0, 3, 3, center-112+32, baseY-56) // D
+
 	// Add the player UI bar + portrait.
 	ui(0, 0, 96, 32, 64, 32, 990)
 	ui(0, 2, 16, 16, 32, 32, 999)
+
 	// Add the player lives.
 	for i := 0; i < 4; i++ {
 		ui(5, 2, 16, 16, 48+float64(i*16), 32, 999)
 	}
+
 	// Add the player attack buttons.
 	uiButton(3, 0, 0, 2, center+112-32, baseY-56)
 	uiButton(3, 0, 1, 2, center+112, baseY-56)
-	ui(3, 0, 32, 32, center+112+32, baseY-56, 990) // third slot background only
+	ui(3, 0, 32, 32, center+112+32, baseY-56, 990)
+}
+
+// handleAttack handles the player's attack state and returns the next state.
+func handleAttack(s uint64) (next uint64) {
+	// Check if an attack is in progress.
+	if s&StateAttack == StateAttack {
+		if engine.Fos[0] == 3 {
+			engine.CamShakeMagnitude = 2.5
+			engine.CamShakeTime = 100
+			engine.Ss[0] = 3.0
+		}
+		if engine.Fos[0] == 7 {
+			s &= ^StateAttack
+			engine.Ss[0] = 1.0
+		}
+	}
+
+	// Apply a hit window during attack frames 4..6.
+	if s&StateAttack == StateAttack && engine.Fos[0] >= 4 && engine.Fos[0] <= 6 {
+		for i := 1; i < len(engine.States); i++ {
+			if engine.States[i]&StateAggressive == StateAggressive &&
+				engine.States[i]&engine.StateEntityVisible == engine.StateEntityVisible {
+				if engine.HasCollision(0, i) {
+					engine.PlaySound(1, 1.0, false)
+					killMonster(i)
+				}
+			}
+		}
+	}
+
+	// Check if the player is pressing the attack button.
+	if engine.KeyQ && s&StateAttack != StateAttack {
+		s &= ^engine.StateEntityIdle
+		s |= StateAttack
+		engine.Fos[0] = 0
+		engine.Fts[0] = 0
+		engine.PlaySound(0, 1.0, false)
+	}
+	return s
 }
 
 // killMonster stops rendering and updating this monster.
 func killMonster(i int) {
 	s := engine.States[i]
+
 	// Remove behavior & movement, faces and loops.
 	s &^= (StateAggressive |
 		engine.StateEntityMove | engine.StateEntityIdle |
@@ -208,9 +236,11 @@ func killMonster(i int) {
 		engine.StateEntityMoveRight | engine.StateEntityMoveUp |
 		engine.StateEntityAnimatedLoop |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight)
+
 	// Mark as dead and start one-shot animation (marked as auto-hide).
 	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityAutoHide | engine.StateEntityVisible
 	engine.States[i] = s
+
 	// Create a hit-stop at the 6th attack frame of the player's attack animation.
 	engine.Fos[0] = 5
 	engine.HitStopRemaining = 70
