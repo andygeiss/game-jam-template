@@ -24,8 +24,6 @@ func Route(ctx context.Context, cfg *config.Config) *http.ServeMux {
 	engine.Parse(cfg.Templates)
 
 	// Add the UI endpoints for HTMX.
-
-	// Add the UI endpoints for HTMX.
 	mux.HandleFunc("GET /ui", logging.WithLogging(cfg.Logging,
 		security.WithAuth(serverSessions, ui.ViewIndex(cfg, engine, serverSessions))))
 

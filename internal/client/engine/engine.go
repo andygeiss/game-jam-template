@@ -15,12 +15,14 @@ const (
 	// It is a sweet spot between smoothness and performance.
 	AnimationFrameCount    = 8
 	AnimationFrameDuration = 100
+
 	// A canvas size of 640x360 is often used for pixel art games.
 	// This resolution can be easily scaled up or down without losing quality.
 	// We use some default constants here to make the implementation simpler.
 	// This engine has a simple concept and does not compete with other engines.
 	CanvasWidth  = 640
 	CanvasHeight = 360
+
 	// Base speed for the entity movement.
 	EntitySpeed = 0.1
 )
@@ -70,6 +72,7 @@ var (
 	MouseY            float64
 	RowIndexForState  map[uint64]int // row index for spritesheet
 	RowIndexMask      uint64         // enabled row bits
+
 	// Structure of Arrays to store the entities.
 	States []uint64
 	As     []float64 // alpha (opacity)
@@ -123,6 +126,7 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	Xs = append(Xs, x)
 	Ys = append(Ys, y)
 	Zs = append(Zs, z)
+
 	// Add the current index to the draw order.
 	drawOrder = append(drawOrder, len(States)-1)
 }
@@ -132,18 +136,22 @@ func AddTilemap(imgIndex int, tiles []int, tilemapCols, tilemapRows, tilesetCols
 	maxTile := tilesetCols * tilesetRows
 	for j := 0; j < tilemapRows; j++ {
 		for i := 0; i < tilemapCols; i++ {
+			// Calculate the tile index in the flat array.
 			idx := j*tilemapCols + i // index in the tilemap
 			if idx < 0 || idx >= len(tiles) {
 				continue
 			}
-			t := tiles[idx] // index in the tileset (0..maxTile-1)
+
+			// Get the tile from the flat array.
+			t := tiles[idx]
 			if t < 0 || t >= maxTile {
-				// allow -1 for "empty", or skip invalid tiles
+				// Skip empty tiles.
 				continue
 			}
+
+			// Place tiles on grid centers (engine draws centered).
 			imgCol := t % tilesetCols
 			imgRow := t / tilesetCols
-			// Place tiles on grid centers (engine draws centered).
 			x := float64(i)*tileW + tileW/2
 			y := float64(j)*tileH + tileH/2
 			AddEntity(StateEntityVisible, imgIndex, imgCol, imgRow, tileW, tileH, x, y, 1, 0)
@@ -153,7 +161,7 @@ func AddTilemap(imgIndex int, tiles []int, tilemapCols, tilemapRows, tilesetCols
 
 // AddUI adds a UI (screen-space) entity and returns its index.
 func AddUI(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) int {
-	AddEntity(state, imgIndex, imgCol, imgRow, w, h, x, y, alpha, z) // existing helper
+	AddEntity(state, imgIndex, imgCol, imgRow, w, h, x, y, alpha, z)
 	i := len(States) - 1
 	SetScreenSpace(i, true) // flips to screen-space
 	return i
@@ -226,59 +234,66 @@ func StopSound(index int) {
 // Run initializes the engine and starts the main loop.
 // This function is called every frame with the delta time (in ms).
 func Run(updateScene func(dt float64)) {
-	// RowIndexForState must be specified.
-	// RowIndexMask must be set.
 	// Create a few shortcuts.
 	doc = js.Global().Get("document")
 	perf := js.Global().Get("performance")
+
 	// Initialize the canvas element first.
-	canvas = doc.Call("createElement", "canvas")
 	// Set the canvas element's width and height.
+	// Add the canvas element to the document body.
+	canvas = doc.Call("createElement", "canvas")
 	canvas.Set("width", CanvasWidth)
 	canvas.Set("height", CanvasHeight)
-	// Add the canvas element to the document body.
 	doc.Get("body").Call("appendChild", canvas)
+
 	// Get the canvas element's context.
 	ctx = canvas.Call("getContext", "2d")
+
 	// Initialize the last timestamp of the animation frame.
 	lastTs = perf.Call("now").Float()
 	lastToggleMs = lastTs
+
 	// Set the camera target entity to index -1 initially (none).
 	CamTarget = -1
 	SetWorldSize(CanvasWidth, CanvasHeight)
+
 	// Add event listeners for keyboard and mouse events.
 	addEventListeners()
+
 	// Ensure that the loop function is not garbage collected.
 	loopFn = js.FuncOf(func(this js.Value, args []js.Value) any {
+		// Limit the maximum delta time to 50 milliseconds.
+		// Record the time since the last toggle.
 		now := perf.Call("now").Float()
 		dt := now - lastTs
-		// Limit the maximum delta time to 50 milliseconds.
 		if dt > 50 {
 			dt = 50
 		}
 		lastTs = now
-		// Record the time since the last toggle.
 		lastToggleMs += dt
-		// Check if hitstop is active and freeze the game.
+
+		// Check if hit stop is active and freeze the game.
 		if HitStopRemaining > 0 {
 			HitStopRemaining -= dt
 			if HitStopRemaining <= 0 {
 				HitStopRemaining = 0
 			}
-			// Freeze during hitstop.
 			dt = 0
 		}
+
 		// Updates the data and handles the logic.
-		updateScene(dt)
 		// Update the states.
+		// Update the camera position and shake even if hit stop is active.
+		updateScene(dt)
 		updateStates(dt)
-		// Update the camera position and shake even if hitstop is active.
 		updateCamera(dt)
+
 		// Clear the canvas.
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
+
 		// Check if all assets are loaded.
-		allAssetsLoaded := imagesLoaded == len(images) && soundsLoaded == len(sounds)
 		// Skip rendering the entities if not all assets are loaded.
+		allAssetsLoaded := imagesLoaded == len(images) && soundsLoaded == len(sounds)
 		if !allAssetsLoaded {
 			ctx.Set("fillStyle", "white")
 			ctx.Set("font", "24px Arial")
@@ -288,23 +303,29 @@ func Run(updateScene func(dt float64)) {
 			js.Global().Call("requestAnimationFrame", loopFn)
 			return nil
 		}
+
 		// Get the camera position and shake values.
 		// This will be used to calculate the visible entities
 		// and apply the camera transform.
 		ox := -camX + camShakeX
 		oy := -camY + camShakeY
+
 		// Snap camera movement (including shake) to integer pixels.
 		// This fixes the “pixel seams” from sub-pixel camera movement.
 		tx := math.Round(ox)
 		ty := math.Round(oy)
 		ctx.Call("save")
 		ctx.Call("translate", tx, ty)
+
 		// Render the entities within the world-space.
 		renderEntities(dt, false)
+
 		// Undo the camera transform to display UI elements.
 		ctx.Call("restore")
+
 		// Render the UI elements.
 		renderEntities(dt, true)
+
 		// Show "Click to start the game" message if there is no player input.
 		// We need a player input to play sound effects (security reason).
 		if !HasPlayerInput {
@@ -314,6 +335,7 @@ func Run(updateScene func(dt float64)) {
 			ctx.Set("textBaseline", "middle")
 			ctx.Call("fillText", "Click to start the game", CanvasWidth/2, CanvasHeight/2)
 		}
+
 		// Call the loop function recursively.
 		js.Global().Call("requestAnimationFrame", loopFn)
 		return nil
@@ -342,6 +364,7 @@ func addEventListeners() {
 	for _, e := range events {
 		event := e
 		target := js.Global()
+
 		// Ensure that the mouse event listener is added to the canvas element.
 		if event == "mousedown" || event == "mousemove" || event == "mouseup" {
 			target = canvas
@@ -352,6 +375,7 @@ func addEventListeners() {
 			if (event == "keydown" || event == "mousedown") && !HasPlayerInput {
 				HasPlayerInput = true
 			}
+
 			// Handle the event based on its type.
 			switch event {
 			case "keydown":
@@ -373,12 +397,14 @@ func addEventListeners() {
 				scaleY := float64(CanvasHeight) / rect.Get("height").Float()
 				mx := (args[0].Get("clientX").Float() - rect.Get("left").Float()) * scaleX
 				my := (args[0].Get("clientY").Float() - rect.Get("top").Float()) * scaleY
+
 				// Calculate the mouse position relative to the world event with shake.
 				MouseX = mx + camX - camShakeX
 				MouseY = my + camY - camShakeY
 			case "mouseup":
 				MouseDown = false
 			}
+
 			// Prevent default behavior.
 			if args != nil && args[0].Truthy() {
 				args[0].Call("preventDefault")
@@ -440,13 +466,15 @@ func renderEntities(dt float64, screenSpace bool) {
 	sort.SliceStable(drawOrder, func(a, b int) bool {
 		ai := drawOrder[a]
 		bi := drawOrder[b]
-		// Check for lower Z layer first.
+
+		// Check for the lower Z layer first.
 		if Zs[ai] != Zs[bi] {
 			return Zs[ai] < Zs[bi]
 		}
-		// Check for painter's order by bottom edge (Y position + height).
+
+		// Check for painter's order by bottom edge (Y position and height).
 		// The destination rectangle is centered around the entity's position.
-		// Thus the Y order is a bit tricky because we need to consider
+		// Thus, the Y order is a bit tricky because we need to consider
 		// the height of the entity and the position of the entity's center.
 		ya := Ys[ai] + Hs[ai]/2
 		yb := Ys[bi] + Hs[bi]/2
@@ -456,9 +484,10 @@ func renderEntities(dt float64, screenSpace bool) {
 		}
 		return ai < bi
 	})
+
 	// Calculate viewport dimensions.
-	// UI uses screen-space culling.
-	// World-space uses camera
+	// - UI uses screen-space culling.
+	// - World-space uses camera.
 	vw, vh := float64(CanvasWidth), float64(CanvasHeight)
 	var vLeft, vTop, vRight, vBottom float64
 	if screenSpace {
@@ -467,6 +496,7 @@ func renderEntities(dt float64, screenSpace bool) {
 		vLeft, vTop = camX-camShakeX, camY-camShakeY
 		vRight, vBottom = vLeft+vw, vTop+vh
 	}
+
 	// Draw the entities with Z+Y sorting.
 	alpha := 1.0
 	for _, i := range drawOrder {
@@ -476,33 +506,41 @@ func renderEntities(dt float64, screenSpace bool) {
 			continue
 		}
 		img := images[Iis[i]]
+
 		// Skip entities without loaded images.
 		if !img.Truthy() {
 			continue
 		}
+
 		// Calculate the destination rectangle coordinates by using entity position and size.
 		// The destination rectangle is centered around the entity's position.
 		dstX := Xs[i] - Ws[i]/2
 		dstY := Ys[i] - Hs[i]/2
+
 		// Skip entities outside the viewport or which are explicitly invisible.
 		if (dstX+Ws[i] < vLeft || dstX > vRight || dstY+Hs[i] < vTop || dstY > vBottom) ||
 			States[i]&StateEntityVisible != StateEntityVisible {
 			continue
 		}
+
 		// Update the animation frame if sprite is animated.
 		if States[i]&StateEntityAnimated == StateEntityAnimated {
 			Fts[i] += dt
+
 			// Check if the animation frame has reached the maximum duration.
 			if Fts[i] >= AnimationFrameDuration {
 				Fts[i] = 0
 				Fos[i]++
 			}
+
 			// Check if the animation frame has reached the maximum number of frames.
 			if Fos[i] >= AnimationFrameCount {
 				Fos[i] = 0
+
 				// Remove animation state (if not looping).
 				if States[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
 					States[i] &= ^StateEntityAnimated
+
 					// Hide entity automatically after one-shot animation.
 					if States[i]&StateEntityAutoHide == StateEntityAutoHide {
 						States[i] &= ^StateEntityVisible
@@ -510,21 +548,22 @@ func renderEntities(dt float64, screenSpace bool) {
 				}
 			}
 		}
+
 		// Calculate the source rectangle coordinates by using sprite position within the image
 		// and the animation frame offset (no animation = offset 0).
-		// Thus we can use spritesheets and tilesets in production and do not need to split sprites
+		// Thus, we can use spritesheets and tilesets in production and do not need to split sprites
 		// and tiles into multiple images.
 		srcX := float64(Ics[i])*Ws[i] + float64(Fos[i])*Ws[i]
 		srcY := float64(Irs[i]) * Hs[i]
+
 		// Set the alpha value for the image if less than 1.
 		if As[i] != alpha {
 			ctx.Set("globalAlpha", As[i])
 			alpha = As[i]
 		}
+
 		// Draw the image on the canvas (centered).
-		ctx.Call("drawImage", img,
-			srcX, srcY, Ws[i], Hs[i],
-			dstX, dstY, Ws[i], Hs[i])
+		ctx.Call("drawImage", img, srcX, srcY, Ws[i], Hs[i], dstX, dstY, Ws[i], Hs[i])
 	}
 	if alpha != 1.0 {
 		ctx.Set("globalAlpha", 1.0)
@@ -560,6 +599,7 @@ func toggleFullscreen() {
 func updateCamera(dt float64) {
 	// Updates the camera position.
 	width, height := float64(CanvasWidth), float64(CanvasHeight)
+
 	// Center the camera on the target if it exists.
 	if CamTarget >= 0 {
 		targetX := Xs[CamTarget]
@@ -567,10 +607,12 @@ func updateCamera(dt float64) {
 		camX = targetX - width/2.0
 		camY = targetY - height/2.0
 	}
+
 	// Ensure the camera position is within bounds.
 	if camBoundsSet {
 		worldW := camMaxX - camMinX
 		worldH := camMaxY - camMinY
+
 		// If the world is smaller than the view, center the world in the view.
 		// Center the camera X.
 		if worldW <= width {
@@ -585,6 +627,7 @@ func updateCamera(dt float64) {
 				camX = max
 			}
 		}
+
 		// Center the camera Y.
 		if worldH <= height {
 			camY = camMinY + (worldH-height)/2.0
@@ -599,13 +642,15 @@ func updateCamera(dt float64) {
 			}
 		}
 	}
+
 	// Apply shake effect if active.
 	if CamShakeTime > 0 {
 		CamShakeTime -= dt
+
 		// Center to [-1, 1], scale by magnitude.
 		camShakeX = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
 		camShakeY = (rand.Float64()*2.0 - 1.0) * CamShakeMagnitude
-	} else { // Or remove shake effect if shake time is 0.
+	} else { // Or remove the shake effect if shake time is 0.
 		camShakeX, camShakeY = 0, 0
 		CamShakeMagnitude = 0
 		CamShakeTime = 0
@@ -632,6 +677,7 @@ func updateStates(dt float64) {
 		s |= StateEntityMoveDown
 	}
 	States[0] = s
+
 	// Update the state of each entity.
 	for i, s := range States {
 		// Handle engine-known states.
@@ -648,6 +694,7 @@ func updateStates(dt float64) {
 		if s&StateEntityMoveDown != 0 {
 			vy += 1
 		}
+
 		// Clear idle and set move state if moving.
 		// Normalize the velocity and use the sprite speed factor.
 		if n := vx*vx + vy*vy; n > 0 {
@@ -664,6 +711,7 @@ func updateStates(dt float64) {
 			s &^= StateEntityMove
 			s |= StateEntityIdle
 		}
+
 		// Switch spritesheet row if there is an external action
 		// by using the provided lookup table.
 		key := s & RowIndexMask
@@ -676,6 +724,7 @@ func updateStates(dt float64) {
 			Fos[i] = 0
 			Fts[i] = 0
 		}
+		
 		// Save the new state.
 		States[i] = s
 	}
