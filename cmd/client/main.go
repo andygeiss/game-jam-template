@@ -35,6 +35,20 @@ const (
 	indexRowDeath
 )
 
+var (
+	indexUiButtonQ       int
+	indexUiButtonE       int
+	indexUiButtonR       int
+	indexUiPlayer        int
+	indexUiPlayerAttack1 int
+	indexUiPlayerAttack2 int
+	indexUiPlayerAttack3 int
+	indexUiPlayerLive1   int
+	indexUiPlayerLive2   int
+	indexUiPlayerLive3   int
+	indexUiPlayerLive4   int
+)
+
 const (
 	StateAttack = uint64(1 << (iota + 16))
 	StateAggressive
@@ -107,6 +121,7 @@ func main() {
 		// Handle player-specific states.
 		s := engine.States[0]
 		s = handleAttack(s)
+		s = handleMovement(s)
 		engine.States[0] = s
 	})
 
@@ -160,30 +175,26 @@ func addUi() {
 	ui := func(imgCol, imgRow int, w, h, x, y float64, z int) int {
 		return engine.AddUI(engine.StateEntityVisible, indexImageUi, imgCol, imgRow, w, h, x, y, 1, z)
 	}
-	uiButton := func(bgCol, bgRow, iconCol, iconRow int, x, y float64) {
+	uiButton := func(bgCol, bgRow, iconCol, iconRow int, x, y float64) (index int) {
 		ui(bgCol, bgRow, 32, 32, x, y, 990)
-		ui(iconCol, iconRow, 32, 32, x, y, 999)
+		index = ui(iconCol, iconRow, 32, 32, x, y, 999)
+		return index
 	}
-
-	// Add the WASD cluster.
-	uiButton(3, 0, 0, 3, center-112, baseY-80)    // W
-	uiButton(3, 0, 1, 3, center-112-32, baseY-56) // A
-	uiButton(3, 0, 2, 3, center-112, baseY-32)    // S
-	uiButton(3, 0, 3, 3, center-112+32, baseY-56) // D
 
 	// Add the player UI bar + portrait.
 	ui(0, 0, 96, 32, 64, 32, 990)
-	ui(0, 2, 16, 16, 32, 32, 999)
+	indexUiPlayer = ui(0, 2, 16, 16, 32, 32, 999)
 
 	// Add the player lives.
-	for i := 0; i < 4; i++ {
-		ui(5, 2, 16, 16, 48+float64(i*16), 32, 999)
-	}
+	indexUiPlayerLive1 = ui(5, 2, 16, 16, 48+0, 32, 999)
+	indexUiPlayerLive2 = ui(5, 2, 16, 16, 48+16, 32, 999)
+	indexUiPlayerLive3 = ui(5, 2, 16, 16, 48+32, 32, 999)
+	indexUiPlayerLive4 = ui(5, 2, 16, 16, 48+48, 32, 999)
 
 	// Add the player attack buttons.
-	uiButton(3, 0, 0, 2, center+112-32, baseY-56)
-	uiButton(3, 0, 1, 2, center+112, baseY-56)
-	ui(3, 0, 32, 32, center+112+32, baseY-56, 990)
+	indexUiPlayerAttack1 = uiButton(3, 0, 0, 2, center-32, baseY-56)
+	indexUiPlayerAttack2 = uiButton(3, 0, 1, 2, center, baseY-56)
+	indexUiPlayerAttack3 = ui(3, 0, 32, 32, center+32, baseY-56, 990)
 }
 
 // handleAttack handles the player's attack state and returns the next state.
@@ -221,6 +232,18 @@ func handleAttack(s uint64) (next uint64) {
 		engine.Fos[0] = 0
 		engine.Fts[0] = 0
 		engine.PlaySound(0, 1.0, false)
+	}
+	return s
+}
+
+// handleMovement checks if the player is within the bounds of the arena and updates their position.
+func handleMovement(s uint64) (next uint64) {
+	x, y := engine.Xs[0], engine.Ys[0]
+	if x < 32 || x > worldW-32 {
+		engine.Xs[0] = math.Max(32, math.Min(x, worldW-32))
+	}
+	if y < 32 || y > worldH-32 {
+		engine.Ys[0] = math.Max(32, math.Min(y, worldH-32))
 	}
 	return s
 }

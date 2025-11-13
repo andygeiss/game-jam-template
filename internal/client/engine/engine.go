@@ -110,8 +110,9 @@ var (
 	soundsLoaded         int
 )
 
-// AddEntity adds a new entity to the engine.
-func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) {
+// AddEntity adds a new entity to the engine and returns its index.
+func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) (index int) {
+	index = len(States)
 	As = append(As, alpha)
 	Fos = append(Fos, 0)
 	Fts = append(Fts, 0)
@@ -126,9 +127,9 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	Xs = append(Xs, x)
 	Ys = append(Ys, y)
 	Zs = append(Zs, z)
-
 	// Add the current index to the draw order.
-	drawOrder = append(drawOrder, len(States)-1)
+	drawOrder = append(drawOrder, index)
+	return index
 }
 
 // AddTilemap creates a grid of tile entities from a flat index array.
@@ -160,11 +161,11 @@ func AddTilemap(imgIndex int, tiles []int, tilemapCols, tilemapRows, tilesetCols
 }
 
 // AddUI adds a UI (screen-space) entity and returns its index.
-func AddUI(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) int {
+func AddUI(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) (index int) {
+	index = len(States)
 	AddEntity(state, imgIndex, imgCol, imgRow, w, h, x, y, alpha, z)
-	i := len(States) - 1
-	SetScreenSpace(i, true) // flips to screen-space
-	return i
+	SetScreenSpace(index, true)
+	return index
 }
 
 // BoundingBox returns the left, top, right, bottom for entity i.
@@ -724,7 +725,7 @@ func updateStates(dt float64) {
 			Fos[i] = 0
 			Fts[i] = 0
 		}
-		
+
 		// Save the new state.
 		States[i] = s
 	}
