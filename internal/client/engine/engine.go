@@ -108,6 +108,7 @@ var (
 	loopFn               js.Func
 	sounds               []js.Value
 	soundsLoaded         int
+	renderUi             func()
 )
 
 // AddEntity adds a new entity to the engine and returns its index.
@@ -219,17 +220,13 @@ func PlaySound(index int, volume float64, loop bool) {
 	}
 }
 
-// SetScreenSpace sets the entity at the given index to be in screen space or world space.
-func SetScreenSpace(i int, screenSpace bool) {
-	Uis[i] = screenSpace
-}
-
-// StopSound stops a sound from the given index.
-func StopSound(index int) {
-	if sounds[index].Truthy() && !sounds[index].Get("paused").Bool() {
-		sounds[index].Set("currentTime", 0)
-		sounds[index].Call("pause")
-	}
+// RenderText renders text at the given position with the specified color.
+func RenderText(x, y float64, text, color string) {
+	ctx.Set("fillStyle", color)
+	ctx.Set("font", "16px Arial")
+	ctx.Set("textAlign", "left")
+	ctx.Set("textBaseline", "top")
+	ctx.Call("fillText", text, x, y)
 }
 
 // Run initializes the engine and starts the main loop.
@@ -326,6 +323,7 @@ func Run(updateScene func(dt float64)) {
 
 		// Render the UI elements.
 		renderEntities(dt, true)
+		renderUi()
 
 		// Show "Click to start the game" message if there is no player input.
 		// We need a player input to play sound effects (security reason).
@@ -344,6 +342,21 @@ func Run(updateScene func(dt float64)) {
 	js.Global().Call("requestAnimationFrame", loopFn)
 }
 
+// SetRenderUi sets the function to render UI elements.
+func SetRenderUi(fn func()) {
+	renderUi = fn
+}
+
+// SetScreenSpace sets the entity at the given index to be in screen space or world space.
+func SetScreenSpace(i int, screenSpace bool) {
+	Uis[i] = screenSpace
+}
+
+// SetSoundVolume sets the volume of a sound effect.
+func SetSoundVolume(index int, volume float64) {
+	sounds[index].Set("volume", volume)
+}
+
 // SetWorldSize sets the world size.
 func SetWorldSize(width, height float64) {
 	camMinX = 0
@@ -353,9 +366,12 @@ func SetWorldSize(width, height float64) {
 	camBoundsSet = true
 }
 
-// SetSoundVolume sets the volume of a sound effect.
-func SetSoundVolume(index int, volume float64) {
-	sounds[index].Set("volume", volume)
+// StopSound stops a sound from the given index.
+func StopSound(index int) {
+	if sounds[index].Truthy() && !sounds[index].Get("paused").Bool() {
+		sounds[index].Set("currentTime", 0)
+		sounds[index].Call("pause")
+	}
 }
 
 // addEventListeners adds event listeners for each event type.

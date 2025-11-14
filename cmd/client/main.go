@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"template/internal/client/engine"
@@ -50,6 +51,11 @@ var (
 	indexUiPlayerLive4   int
 )
 
+var (
+	playerLives    int
+	monstersKilled int
+)
+
 const (
 	StateAction1 = uint64(1 << (iota + 16))
 	StateAction2
@@ -59,6 +65,10 @@ const (
 )
 
 func main() {
+	// Initialize game state.
+	playerLives = 4
+	monstersKilled = 0
+
 	// Load the assets.
 	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png")
 	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
@@ -109,6 +119,9 @@ func main() {
 	addUi()     // entity 1
 	addMobs()
 	engine.AddTilemap(indexImageTileset, tiles, tilemapCols, tilemapRows, tilesetCols, tilesetRows, tileW, tileH)
+
+	// Wire up the UI.
+	engine.SetRenderUi(renderUI)
 
 	// Start the game loop.
 	engine.Run(func(dt float64) {
@@ -201,19 +214,19 @@ func addUi() {
 	}
 
 	// Add the player UI bar + portrait.
-	ui(0, 0, 96, 32, 64, 32, 990)
-	indexUiPlayer = ui(0, 2, 16, 16, 32, 32, 999)
+	ui(0, 0, 96, 32, center, 32, 990)
+	indexUiPlayer = ui(0, 2, 16, 16, center-32, 32, 999)
 
 	// Add the player lives.
-	indexUiPlayerLive1 = ui(5, 2, 16, 16, 48+0, 32, 999)
-	indexUiPlayerLive2 = ui(5, 2, 16, 16, 48+16, 32, 999)
-	indexUiPlayerLive3 = ui(5, 2, 16, 16, 48+32, 32, 999)
-	indexUiPlayerLive4 = ui(5, 2, 16, 16, 48+48, 32, 999)
+	indexUiPlayerLive1 = ui(5, 2, 16, 16, center-16, 32, 999)
+	indexUiPlayerLive2 = ui(5, 2, 16, 16, center+0, 32, 999)
+	indexUiPlayerLive3 = ui(5, 2, 16, 16, center+16, 32, 999)
+	indexUiPlayerLive4 = ui(5, 2, 16, 16, center+32, 32, 999)
 
 	// Add the player attack buttons.
-	indexUiPlayerAttack1 = uiButton(3, 0, 0, 2, center-32, baseY-56)
-	indexUiPlayerAttack2 = uiButton(3, 0, 1, 2, center, baseY-56)
-	indexUiPlayerAttack3 = ui(3, 0, 32, 32, center+32, baseY-56, 990)
+	indexUiPlayerAttack1 = uiButton(3, 0, 0, 2, center-32, baseY-32)
+	indexUiPlayerAttack2 = uiButton(3, 0, 1, 2, center, baseY-32)
+	indexUiPlayerAttack3 = ui(3, 0, 32, 32, center+32, baseY-32, 990)
 }
 
 // handleAction1 handles the player's action1 state and returns the next state.
@@ -305,6 +318,9 @@ func killMonster(i int) {
 	// Create a hit-stop at the 6th attack frame of the player's attack animation.
 	engine.Fos[0] = 5
 	engine.HitStopRemaining = 70
+
+	// Increment the monsters killed counter.
+	monstersKilled++
 }
 
 // moveMonsters moves the monsters towards the player position.
@@ -323,4 +339,19 @@ func moveMonsters(dt float64) {
 			}
 		}
 	}
+}
+
+// renderUI renders the UI elements.
+func renderUI() {
+	alive := 0
+	for i := 1; i < len(engine.States); i++ {
+		s := engine.States[i]
+		if s&StateAggressive == StateAggressive &&
+			s&StateDead != StateDead &&
+			s&engine.StateEntityVisible == engine.StateEntityVisible {
+			alive++
+		}
+	}
+	engine.RenderText(8, 16, fmt.Sprintf("Monsters alive: %d", alive), "white")
+	engine.RenderText(8, 32, fmt.Sprintf("Monsters killed: %d", monstersKilled), "yellow")
 }
