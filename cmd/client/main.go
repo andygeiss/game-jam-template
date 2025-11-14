@@ -10,14 +10,15 @@ import (
 )
 
 const (
-	tilemapCols = 33
-	tilemapRows = 21
-	tilesetCols = 3
-	tilesetRows = 5
-	tileW       = 32
-	tileH       = 32
-	worldW      = float64(tilemapCols) * tileW
-	worldH      = float64(tilemapRows) * tileH
+	projectileSpeed = 3.0
+	tilemapCols     = 33
+	tilemapRows     = 21
+	tilesetCols     = 3
+	tilesetRows     = 5
+	tileW           = 32
+	tileH           = 32
+	worldW          = float64(tilemapCols) * tileW
+	worldH          = float64(tilemapRows) * tileH
 )
 
 const (
@@ -35,6 +36,7 @@ const (
 	indexRowAction1Left
 	indexRowMonsterMove
 	indexRowDeath
+	indexRowAction2
 )
 
 var (
@@ -42,9 +44,9 @@ var (
 	indexUiButtonE       int
 	indexUiButtonR       int
 	indexUiPlayer        int
-	indexUiPlayerAttack1 int
-	indexUiPlayerAttack2 int
-	indexUiPlayerAttack3 int
+	indexUiPlayerAction1 int
+	indexUiPlayerAction2 int
+	indexUiPlayerAction3 int
 	indexUiPlayerLive1   int
 	indexUiPlayerLive2   int
 	indexUiPlayerLive3   int
@@ -52,8 +54,12 @@ var (
 )
 
 var (
-	playerLives    int
-	monstersKilled int
+	action1Cooldown           = 1000.0
+	action2Cooldown           = 3000.0
+	action1CooldownDt float64 = 0
+	action2CooldownDt float64 = 0
+	playerLives       int
+	monstersKilled    int
 )
 
 const (
@@ -62,6 +68,7 @@ const (
 	StateAction3
 	StateAggressive
 	StateDead
+	StateProjectile
 )
 
 func main() {
@@ -75,7 +82,7 @@ func main() {
 
 	// Load the state mapping.
 	engine.RowIndexMask = StateAction1 | StateAction2 | StateAction3 |
-		StateAggressive | StateDead |
+		StateAggressive | StateDead | StateProjectile |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
 		engine.StateEntityIdle | engine.StateEntityMove
 
@@ -133,12 +140,15 @@ func main() {
 		// Play the title sound if it's not already playing.
 		engine.PlaySound(2, 0.25, true)
 
-		// Move aggressive monsters towards the player position.
+		reduceCooldowns(dt)
 		moveMonsters(dt)
+		moveProjectiles()
+		updateButtons()
 
 		// Handle player-specific states.
 		s := engine.States[0]
 		s = handleAction1(s)
+		s = handleAction2(s)
 		s = handleMovement(s)
 		engine.States[0] = s
 	})
@@ -155,7 +165,7 @@ func main() {
 
 // addMobs adds monsters to the game world.
 func addMobs() {
-	const n = 16
+	const n = 100
 	const r = 64
 	for i := 0; i < n; i++ {
 		// Randomize space between monsters.
@@ -224,13 +234,43 @@ func addUi() {
 	indexUiPlayerLive4 = ui(5, 2, 16, 16, center+32, 32, 999)
 
 	// Add the player attack buttons.
-	indexUiPlayerAttack1 = uiButton(3, 0, 0, 2, center-32, baseY-32)
-	indexUiPlayerAttack2 = uiButton(3, 0, 1, 2, center, baseY-32)
-	indexUiPlayerAttack3 = ui(3, 0, 32, 32, center+32, baseY-32, 990)
+	indexUiPlayerAction1 = uiButton(3, 0, 0, 2, center-32, baseY-32)
+	indexUiPlayerAction2 = uiButton(3, 0, 1, 2, center, baseY-32)
+	indexUiPlayerAction3 = ui(3, 0, 32, 32, center+32, baseY-32, 990)
+}
+
+// fireAttack2Projectiles spawns 4 projectiles from the player position
+// flying north, east, south and west.
+func fireAttack2Projectiles() {
+	px, py := engine.Xs[0], engine.Ys[0]
+
+	spawn := func(extraState uint64) {
+		fullState := engine.StateEntityAnimated |
+			engine.StateEntityAnimatedLoop |
+			engine.StateEntityVisible |
+			extraState | StateProjectile
+
+		// Reuse existing projectile if available.
+		idx := spawnOrReuseProjectile(fullState, indexImageSpritesheet,
+			0, indexRowAction2, px, py)
+
+		engine.Ss[idx] = projectileSpeed
+	}
+
+	// North, East, South, West
+	spawn(engine.StateEntityMoveUp)
+	spawn(engine.StateEntityMoveRight)
+	spawn(engine.StateEntityMoveDown)
+	spawn(engine.StateEntityMoveLeft)
 }
 
 // handleAction1 handles the player's action1 state and returns the next state.
 func handleAction1(s uint64) (next uint64) {
+	// Check for cooldown.
+	if action1CooldownDt > 0 {
+		return s
+	}
+
 	// Check if an attack is in progress.
 	if s&StateAction1 == StateAction1 {
 		if engine.Fos[0] == 3 {
@@ -264,6 +304,31 @@ func handleAction1(s uint64) (next uint64) {
 		engine.Fos[0] = 0
 		engine.Fts[0] = 0
 		engine.PlaySound(0, 1.0, false)
+		action1CooldownDt = action1Cooldown
+	}
+	return s
+}
+
+// handleAction2 handles the second action of the player.
+func handleAction2(s uint64) (next uint64) {
+	// Check for cooldown and trigger only once per key press.
+	if action2CooldownDt > 0 {
+		return s &^ StateAction2
+	}
+
+	// Trigger only once per key press.
+	if engine.KeyE && s&StateAction2 == 0 {
+		s |= StateAction2
+		fireAttack2Projectiles()
+		engine.PlaySound(0, 1.0, false)
+
+		// Start cooldown now!
+		action2CooldownDt = action2Cooldown
+	}
+
+	// Clear action state as soon as possible.
+	if !engine.KeyE {
+		s &^= StateAction2
 	}
 	return s
 }
@@ -341,6 +406,72 @@ func moveMonsters(dt float64) {
 	}
 }
 
+// moveProjectiles moves projectiles and handles collisions and despawn.
+func moveProjectiles() {
+	for i := 1; i < len(engine.States); i++ {
+		s := engine.States[i]
+
+		// Only care about visible projectiles.
+		if s&StateProjectile == 0 || s&engine.StateEntityVisible == 0 {
+			continue
+		}
+
+		x, y := engine.Xs[i], engine.Ys[i]
+
+		// Despawn when leaving the world bounds.
+		if x < 0 || x > worldW || y < 0 || y > worldH {
+			s &^= (engine.StateEntityVisible |
+				engine.StateEntityMove |
+				engine.StateEntityMoveUp |
+				engine.StateEntityMoveDown |
+				engine.StateEntityMoveLeft |
+				engine.StateEntityMoveRight)
+			engine.States[i] = s
+			continue
+		}
+
+		// Check collision with aggressive monsters.
+		for j := 1; j < len(engine.States); j++ {
+			if i == j {
+				continue
+			}
+			ms := engine.States[j]
+			if ms&StateAggressive == 0 ||
+				ms&engine.StateEntityVisible == 0 {
+				continue
+			}
+
+			if engine.HasCollision(i, j) {
+				// Hit monster: kill it and hide the projectile.
+				engine.PlaySound(1, 1.0, false)
+				killMonster(j)
+
+				s &^= engine.StateEntityVisible
+				engine.States[i] = s
+				break
+			}
+		}
+	}
+}
+
+// reduceCooldowns reduces the cooldowns of the player actions.
+func reduceCooldowns(dt float64) {
+	if action1CooldownDt > 0 {
+		action1CooldownDt -= dt
+		if action1CooldownDt < 0 {
+			action1CooldownDt = 0
+		}
+	}
+
+	if action2CooldownDt > 0 {
+		action2CooldownDt -= dt
+		if action2CooldownDt < 0 {
+			action2CooldownDt = 0
+		}
+	}
+
+}
+
 // renderUI renders the UI elements.
 func renderUI() {
 	alive := 0
@@ -354,4 +485,44 @@ func renderUI() {
 	}
 	engine.RenderText(8, 16, fmt.Sprintf("Monsters alive: %d", alive), "white")
 	engine.RenderText(8, 32, fmt.Sprintf("Monsters killed: %d", monstersKilled), "yellow")
+}
+
+// spawnOrReuseProjectile spawns or reuses a projectile.
+func spawnOrReuseProjectile(state uint64, imgIdx, col, row int, x, y float64) int {
+	// Try to reuse invisible projectile.
+	for i := 1; i < len(engine.States); i++ {
+		if engine.States[i]&StateProjectile != 0 &&
+			engine.States[i]&engine.StateEntityVisible == 0 {
+
+			// Reuse this one.
+			engine.States[i] = state
+			engine.Xs[i] = x
+			engine.Ys[i] = y
+			engine.Fos[i] = 0
+			engine.Fts[i] = 0
+			return i
+		}
+	}
+
+	// Create new projectile.
+	return engine.AddEntity(
+		state, imgIdx, col, row, 32, 32, x, y, 1.0, 2,
+	)
+}
+
+// updateButtons updates the UI buttons.
+func updateButtons() {
+	// Handle action1 button.
+	if action1CooldownDt > 0 {
+		engine.As[indexUiPlayerAction1] = 0.25
+	} else {
+		engine.As[indexUiPlayerAction1] = 1.0
+	}
+
+	// Handle action2 button.
+	if action2CooldownDt > 0 {
+		engine.As[indexUiPlayerAction2] = 0.25
+	} else {
+		engine.As[indexUiPlayerAction2] = 1.0
+	}
 }
