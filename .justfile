@@ -4,7 +4,7 @@ set dotenv-load
 build: copy
     @GOOS=js GOARCH=wasm tinygo build -target wasm -opt=z -o bin/game.wasm cmd/client/main.go
     @wasm-opt -Oz --strip-debug --strip-producers -o bin/game-opt.wasm bin/game.wasm
-    @cp bin/game-opt.wasm cmd/server/assets/game.wasm
+    @cp bin/game.wasm cmd/server/assets/game.wasm
 
     @go build \
     -ldflags "-s -w" \
