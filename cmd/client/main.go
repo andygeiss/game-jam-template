@@ -4,14 +4,15 @@ package main
 
 import (
 	"math"
+	"math/rand/v2"
 	"template/internal/client/engine"
 )
 
 const (
-	tilemapCols = 32
-	tilemapRows = 20
+	tilemapCols = 33
+	tilemapRows = 21
 	tilesetCols = 3
-	tilesetRows = 3
+	tilesetRows = 5
 	tileW       = 32
 	tileH       = 32
 	worldW      = float64(tilemapCols) * tileW
@@ -29,8 +30,8 @@ const (
 	indexRowIdleLeft
 	indexRowMoveRight
 	indexRowMoveLeft
-	indexRowAttackRight
-	indexRowAttackLeft
+	indexRowAction1Right
+	indexRowAction1Left
 	indexRowMonsterMove
 	indexRowDeath
 )
@@ -50,7 +51,9 @@ var (
 )
 
 const (
-	StateAttack = uint64(1 << (iota + 16))
+	StateAction1 = uint64(1 << (iota + 16))
+	StateAction2
+	StateAction3
 	StateAggressive
 	StateDead
 )
@@ -61,13 +64,14 @@ func main() {
 	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
 
 	// Load the state mapping.
-	engine.RowIndexMask = StateAttack | StateDead |
+	engine.RowIndexMask = StateAction1 | StateAction2 | StateAction3 |
+		StateAggressive | StateDead |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
 		engine.StateEntityIdle | engine.StateEntityMove
 
 	engine.RowIndexForState = map[uint64]int{
-		engine.StateEntityFaceRight | StateAttack:            indexRowAttackRight,
-		engine.StateEntityFaceLeft | StateAttack:             indexRowAttackLeft,
+		engine.StateEntityFaceRight | StateAction1:           indexRowAction1Right,
+		engine.StateEntityFaceLeft | StateAction1:            indexRowAction1Left,
 		engine.StateEntityFaceRight | engine.StateEntityIdle: indexRowIdleRight,
 		engine.StateEntityFaceLeft | engine.StateEntityIdle:  indexRowIdleLeft,
 		engine.StateEntityFaceRight | engine.StateEntityMove: indexRowMoveRight,
@@ -77,26 +81,27 @@ func main() {
 
 	// Set the tilemap.
 	tiles := []int{
-		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-		6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
+		0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 11, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		9, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 10,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+		6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 12, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
 	}
 
 	// Add the entities.
@@ -120,7 +125,7 @@ func main() {
 
 		// Handle player-specific states.
 		s := engine.States[0]
-		s = handleAttack(s)
+		s = handleAction1(s)
 		s = handleMovement(s)
 		engine.States[0] = s
 	})
@@ -137,21 +142,35 @@ func main() {
 
 // addMobs adds monsters to the game world.
 func addMobs() {
-	const n = 10
-	const r = 500.0
-	px, py := worldW/2, worldH/2
+	const n = 16
+	const r = 64
 	for i := 0; i < n; i++ {
-		ang := 2 * math.Pi * float64(i) / float64(n)
-		x := px + math.Cos(ang)*r
-		y := py + math.Sin(ang)*r
+		// Randomize space between monsters.
+		space := rand.Float64() * float64(r)
 
-		// If your monster frames are not at col 0 / row 6, adjust these two:
-		const monsterCol = 0
-		const monsterRow = 6
+		// Select x and y based on the map boundary at the center
+		// of the left, top, right, and bottom sides.
+		var x, y float64
+		switch i % 4 {
+		case 0: // Left side
+			x = -float64(i*r) + space
+			y = worldH / 2
+		case 1: // Top side
+			x = worldW / 2
+			y = -float64(i*r) + space
+		case 2: // Right side
+			x = worldW + float64(i*r) + space
+			y = worldH / 2
+		case 3: // Bottom side
+			x = worldW / 2
+			y = worldH + float64(i*r) + space
+		}
+
+		// Add the monster (as invisible) to the game world.
+		// It will be visible when the monster moves into the arena boundary.
 		engine.AddEntity(
-			engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|
-				StateAggressive|engine.StateEntityVisible,
-			indexImageSpritesheet, monsterCol, monsterRow, 32, 32,
+			engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|StateAggressive,
+			indexImageSpritesheet, 0, indexRowMonsterMove, 32, 32,
 			x, y, 1, 1,
 		)
 	}
@@ -197,23 +216,23 @@ func addUi() {
 	indexUiPlayerAttack3 = ui(3, 0, 32, 32, center+32, baseY-56, 990)
 }
 
-// handleAttack handles the player's attack state and returns the next state.
-func handleAttack(s uint64) (next uint64) {
+// handleAction1 handles the player's action1 state and returns the next state.
+func handleAction1(s uint64) (next uint64) {
 	// Check if an attack is in progress.
-	if s&StateAttack == StateAttack {
+	if s&StateAction1 == StateAction1 {
 		if engine.Fos[0] == 3 {
 			engine.CamShakeMagnitude = 2.5
 			engine.CamShakeTime = 100
 			engine.Ss[0] = 3.0
 		}
 		if engine.Fos[0] == 7 {
-			s &= ^StateAttack
+			s &= ^StateAction1
 			engine.Ss[0] = 1.0
 		}
 	}
 
 	// Apply a hit window during attack frames 4..6.
-	if s&StateAttack == StateAttack && engine.Fos[0] >= 4 && engine.Fos[0] <= 6 {
+	if s&StateAction1 == StateAction1 && engine.Fos[0] >= 4 && engine.Fos[0] <= 6 {
 		for i := 1; i < len(engine.States); i++ {
 			if engine.States[i]&StateAggressive == StateAggressive &&
 				engine.States[i]&engine.StateEntityVisible == engine.StateEntityVisible {
@@ -226,9 +245,9 @@ func handleAttack(s uint64) (next uint64) {
 	}
 
 	// Check if the player is pressing the attack button.
-	if engine.KeyQ && s&StateAttack != StateAttack {
+	if engine.KeyQ && s&StateAction1 != StateAction1 {
 		s &= ^engine.StateEntityIdle
-		s |= StateAttack
+		s |= StateAction1
 		engine.Fos[0] = 0
 		engine.Fts[0] = 0
 		engine.PlaySound(0, 1.0, false)
@@ -238,6 +257,7 @@ func handleAttack(s uint64) (next uint64) {
 
 // handleMovement checks if the player is within the bounds of the arena and updates their position.
 func handleMovement(s uint64) (next uint64) {
+	// Handle player movement.
 	x, y := engine.Xs[0], engine.Ys[0]
 	if x < 32 || x > worldW-32 {
 		engine.Xs[0] = math.Max(32, math.Min(x, worldW-32))
@@ -245,6 +265,24 @@ func handleMovement(s uint64) (next uint64) {
 	if y < 32 || y > worldH-32 {
 		engine.Ys[0] = math.Max(32, math.Min(y, worldH-32))
 	}
+
+	// Update monster movement.
+	// Make the monster visible if its within the bounds of the arena.
+	for i := 1; i < len(engine.States); i++ {
+		s := engine.States[i]
+		if s&engine.StateEntityVisible != engine.StateEntityVisible &&
+			s&StateAggressive == StateAggressive {
+			x, y := engine.Xs[i], engine.Ys[i]
+			s := engine.States[i]
+
+			// Make it visible if within bounds.
+			if x >= 32 && x <= worldW-32 && y >= 32 && y <= worldH-32 {
+				s |= engine.StateEntityVisible
+				engine.States[i] = s
+			}
+		}
+	}
+
 	return s
 }
 
