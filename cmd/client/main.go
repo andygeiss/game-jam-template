@@ -266,11 +266,6 @@ func fireAttack2Projectiles() {
 
 // handleAction1 handles the player's action1 state and returns the next state.
 func handleAction1(s uint64) (next uint64) {
-	// Check for cooldown.
-	if action1CooldownDt > 0 {
-		return s
-	}
-
 	// Check if an attack is in progress.
 	if s&StateAction1 == StateAction1 {
 		if engine.Fos[0] == 3 {
@@ -295,6 +290,11 @@ func handleAction1(s uint64) (next uint64) {
 				}
 			}
 		}
+	}
+
+	// Check for cooldown.
+	if action1CooldownDt > 0 {
+		return s
 	}
 
 	// Check if the player is pressing the attack button.
