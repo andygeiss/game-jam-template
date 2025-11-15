@@ -16,6 +16,10 @@ const (
 	AnimationFrameCount    = 8
 	AnimationFrameDuration = 100
 
+	// BoundingBoxNegativeMargin is the margin used for bounding box calculations.
+	// It is used to shrink the bounding box to make it more "crisp".
+	BoundingBoxNegativeMargin = 12.0
+
 	// A canvas size of 640x360 is often used for pixel art games.
 	// This resolution can be easily scaled up or down without losing quality.
 	// We use some default constants here to make the implementation simpler.
@@ -171,10 +175,10 @@ func AddUI(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64
 
 // BoundingBox returns the left, top, right, bottom for entity i.
 func BoundingBox(i int) (l, t, r, b float64) {
-	l = Xs[i] - Ws[i]/2
-	t = Ys[i] - Hs[i]/2
-	r = l + Ws[i]
-	b = t + Hs[i]
+	l = (Xs[i] - Ws[i]/2) + BoundingBoxNegativeMargin
+	t = Ys[i] - Hs[i]/2 + BoundingBoxNegativeMargin
+	r = l + Ws[i] - BoundingBoxNegativeMargin
+	b = t + Hs[i] - BoundingBoxNegativeMargin
 	return
 }
 
@@ -221,11 +225,11 @@ func PlaySound(index int, volume float64, loop bool) {
 }
 
 // RenderText renders text at the given position with the specified color.
-func RenderText(x, y float64, text, color string) {
+func RenderText(x, y float64, text, color, font, align string) {
 	ctx.Set("fillStyle", color)
-	ctx.Set("font", "16px Arial")
-	ctx.Set("textAlign", "left")
-	ctx.Set("textBaseline", "top")
+	ctx.Set("font", font)
+	ctx.Set("textAlign", align)
+	ctx.Set("textBaseline", "middle")
 	ctx.Call("fillText", text, x, y)
 }
 

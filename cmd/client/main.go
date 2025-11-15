@@ -58,6 +58,7 @@ var (
 	action2Cooldown           = 3000.0
 	action1CooldownDt float64 = 0
 	action2CooldownDt float64 = 0
+	gameOver          bool
 	playerLives       int
 	monstersKilled    int
 )
@@ -68,6 +69,7 @@ const (
 	StateAction3
 	StateAggressive
 	StateDead
+	StateInvincible
 	StateProjectile
 )
 
@@ -82,7 +84,7 @@ func main() {
 
 	// Load the state mapping.
 	engine.RowIndexMask = StateAction1 | StateAction2 | StateAction3 |
-		StateAggressive | StateDead | StateProjectile |
+		StateAggressive | StateDead |
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
 		engine.StateEntityIdle | engine.StateEntityMove
 
@@ -137,12 +139,19 @@ func main() {
 			return
 		}
 
+		// Stop the game loop if the game is over by clearing the player states.
+		if gameOver {
+			engine.States[0] = 0
+			return
+		}
+
 		// Play the title sound if it's not already playing.
 		engine.PlaySound(2, 0.25, true)
 
 		reduceCooldowns(dt)
 		moveMonsters(dt)
 		moveProjectiles()
+		checkCollision()
 		updateButtons()
 
 		// Handle player-specific states.
@@ -239,6 +248,28 @@ func addUi() {
 	indexUiPlayerAction3 = ui(3, 0, 32, 32, center+32, baseY-32, 990)
 }
 
+// checkCollision checks for collisions between the player and monsters.
+func checkCollision() {
+	for i := 1; i < len(engine.States); i++ {
+		s := engine.States[i]
+
+		// Skip non-aggressive, invisible or dead monsters.
+		if s&StateAggressive == 0 || s&StateDead == StateDead {
+			continue
+		}
+
+		// Check collision between player and monster.
+		// Player is invincible during attack1.
+		if engine.HasCollision(0, i) && engine.States[0]&StateInvincible == 0 {
+			playerLives--
+			engine.CamShakeMagnitude = 4.0
+			engine.CamShakeTime = 150
+			engine.HitStopRemaining = 150
+			killMonster(i)
+		}
+	}
+}
+
 // fireAttack2Projectiles spawns 4 projectiles from the player position
 // flying north, east, south and west.
 func fireAttack2Projectiles() {
@@ -271,10 +302,10 @@ func handleAction1(s uint64) (next uint64) {
 		if engine.Fos[0] == 3 {
 			engine.CamShakeMagnitude = 2.5
 			engine.CamShakeTime = 100
-			engine.Ss[0] = 3.0
+			engine.Ss[0] = 2.0
 		}
 		if engine.Fos[0] == 7 {
-			s &= ^StateAction1
+			s &= ^(StateAction1 | StateInvincible)
 			engine.Ss[0] = 1.0
 		}
 	}
@@ -300,7 +331,7 @@ func handleAction1(s uint64) (next uint64) {
 	// Check if the player is pressing the attack button.
 	if engine.KeyQ && s&StateAction1 != StateAction1 {
 		s &= ^engine.StateEntityIdle
-		s |= StateAction1
+		s |= StateAction1 | StateInvincible
 		engine.Fos[0] = 0
 		engine.Fts[0] = 0
 		engine.PlaySound(0, 1.0, false)
@@ -432,20 +463,22 @@ func moveProjectiles() {
 
 		// Check collision with aggressive monsters.
 		for j := 1; j < len(engine.States); j++ {
+			// Skip self.
 			if i == j {
 				continue
 			}
+
+			// Skip non-aggressive or non-visible monsters.
 			ms := engine.States[j]
 			if ms&StateAggressive == 0 ||
 				ms&engine.StateEntityVisible == 0 {
 				continue
 			}
 
+			// Kill the monster if it's hit by the projectile.
 			if engine.HasCollision(i, j) {
-				// Hit monster: kill it and hide the projectile.
 				engine.PlaySound(1, 1.0, false)
 				killMonster(j)
-
 				s &^= engine.StateEntityVisible
 				engine.States[i] = s
 				break
@@ -483,8 +516,16 @@ func renderUI() {
 			alive++
 		}
 	}
-	engine.RenderText(8, 16, fmt.Sprintf("Monsters alive: %d", alive), "white")
-	engine.RenderText(8, 32, fmt.Sprintf("Monsters killed: %d", monstersKilled), "yellow")
+
+	aliveText := fmt.Sprintf("Monsters alive: %d", alive)
+	engine.RenderText(8, 16, aliveText, "white", "16px Arial", "left")
+
+	killedText := fmt.Sprintf("Monsters killed: %d", monstersKilled)
+	engine.RenderText(8, 32, killedText, "yellow", "16px Arial", "left")
+
+	if gameOver {
+		engine.RenderText(engine.CanvasWidth/2, engine.CanvasHeight/2, "Game Over", "red", "24px Arial", "center")
+	}
 }
 
 // spawnOrReuseProjectile spawns or reuses a projectile.
@@ -524,5 +565,35 @@ func updateButtons() {
 		engine.As[indexUiPlayerAction2] = 0.25
 	} else {
 		engine.As[indexUiPlayerAction2] = 1.0
+	}
+
+	// Update the player's lives.
+	switch playerLives {
+	case 1:
+		engine.As[indexUiPlayerLive1] = 1.0
+		engine.As[indexUiPlayerLive2] = 0.0
+		engine.As[indexUiPlayerLive3] = 0.0
+		engine.As[indexUiPlayerLive4] = 0.0
+	case 2:
+		engine.As[indexUiPlayerLive1] = 1.0
+		engine.As[indexUiPlayerLive2] = 1.0
+		engine.As[indexUiPlayerLive3] = 0.0
+		engine.As[indexUiPlayerLive4] = 0.0
+	case 3:
+		engine.As[indexUiPlayerLive1] = 1.0
+		engine.As[indexUiPlayerLive2] = 1.0
+		engine.As[indexUiPlayerLive3] = 1.0
+		engine.As[indexUiPlayerLive4] = 0.0
+	case 4:
+		engine.As[indexUiPlayerLive1] = 1.0
+		engine.As[indexUiPlayerLive2] = 1.0
+		engine.As[indexUiPlayerLive3] = 1.0
+		engine.As[indexUiPlayerLive4] = 1.0
+	default:
+		engine.As[indexUiPlayerLive1] = 0.0
+		engine.As[indexUiPlayerLive2] = 0.0
+		engine.As[indexUiPlayerLive3] = 0.0
+		engine.As[indexUiPlayerLive4] = 0.0
+		gameOver = true
 	}
 }
