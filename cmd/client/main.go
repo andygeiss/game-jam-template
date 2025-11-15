@@ -37,6 +37,8 @@ const (
 	indexRowMonsterMove
 	indexRowDeath
 	indexRowAction2
+	indexRowAction3Right
+	indexRowAction3Left
 )
 
 var (
@@ -56,8 +58,10 @@ var (
 var (
 	action1Cooldown           = 1000.0
 	action2Cooldown           = 3000.0
+	action3Cooldown           = 5000.0
 	action1CooldownDt float64 = 0
 	action2CooldownDt float64 = 0
+	action3CooldownDt float64 = 0
 	gameOver          bool
 	playerLives       int
 	monstersKilled    int
@@ -91,6 +95,8 @@ func main() {
 	engine.RowIndexForState = map[uint64]int{
 		engine.StateEntityFaceRight | StateAction1:           indexRowAction1Right,
 		engine.StateEntityFaceLeft | StateAction1:            indexRowAction1Left,
+		engine.StateEntityFaceRight | StateAction3:           indexRowAction3Right,
+		engine.StateEntityFaceLeft | StateAction3:            indexRowAction3Left,
 		engine.StateEntityFaceRight | engine.StateEntityIdle: indexRowIdleRight,
 		engine.StateEntityFaceLeft | engine.StateEntityIdle:  indexRowIdleLeft,
 		engine.StateEntityFaceRight | engine.StateEntityMove: indexRowMoveRight,
@@ -158,6 +164,7 @@ func main() {
 		s := engine.States[0]
 		s = handleAction1(s)
 		s = handleAction2(s)
+		s = handleAction3(s)
 		s = handleMovement(s)
 		engine.States[0] = s
 	})
@@ -245,7 +252,7 @@ func addUi() {
 	// Add the player attack buttons.
 	indexUiPlayerAction1 = uiButton(3, 0, 0, 2, center-32, baseY-32)
 	indexUiPlayerAction2 = uiButton(3, 0, 1, 2, center, baseY-32)
-	indexUiPlayerAction3 = ui(3, 0, 32, 32, center+32, baseY-32, 990)
+	indexUiPlayerAction3 = uiButton(3, 0, 2, 2, center+32, baseY-32)
 }
 
 // checkCollision checks for collisions between the player and monsters.
@@ -361,6 +368,36 @@ func handleAction2(s uint64) (next uint64) {
 	if !engine.KeyE {
 		s &^= StateAction2
 	}
+	return s
+}
+
+// handleAction3 handles the third action of the player.
+func handleAction3(s uint64) (next uint64) {
+	// If action3 is currently playing, let the animation run.
+	if s&StateAction3 == StateAction3 {
+		// Restore the speed multiplier to 1.0 after the animation ends.
+		if engine.Fos[0] == engine.AnimationFrameCount-1 {
+			s &^= (StateAction3 | StateInvincible)
+			engine.Ss[0] = 1.0
+		}
+		return s
+	}
+
+	// If on cooldown, don't start a new action3.
+	if action3CooldownDt > 0 {
+		return s
+	}
+
+	// Trigger only once per key press.
+	if engine.KeyR {
+		s |= (StateAction3 | StateInvincible)
+		engine.Fos[0] = 0
+		engine.Fts[0] = 0
+		engine.Ss[0] = 4.0
+		engine.PlaySound(0, 1.0, false)
+		action3CooldownDt = action3Cooldown
+	}
+
 	return s
 }
 
@@ -503,6 +540,12 @@ func reduceCooldowns(dt float64) {
 		}
 	}
 
+	if action3CooldownDt > 0 {
+		action3CooldownDt -= dt
+		if action3CooldownDt < 0 {
+			action3CooldownDt = 0
+		}
+	}
 }
 
 // renderUI renders the UI elements.
@@ -565,6 +608,13 @@ func updateButtons() {
 		engine.As[indexUiPlayerAction2] = 0.25
 	} else {
 		engine.As[indexUiPlayerAction2] = 1.0
+	}
+
+	// Handle action3 button.
+	if action3CooldownDt > 0 {
+		engine.As[indexUiPlayerAction3] = 0.25
+	} else {
+		engine.As[indexUiPlayerAction3] = 1.0
 	}
 
 	// Update the player's lives.

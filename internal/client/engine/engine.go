@@ -28,7 +28,7 @@ const (
 	CanvasHeight = 360
 
 	// Base speed for the entity movement.
-	EntitySpeed = 0.1
+	EntitySpeed = 0.125
 )
 
 const (
@@ -682,14 +682,28 @@ func updateCamera(dt float64) {
 func updateStates(dt float64) {
 	// Handle input for the player entity (0).
 	s := States[0]
+
+	// Detect if an "external action" is active (e.g. attack, dash, death, ...).
+	// We treat any bit in RowIndexMask that is not a face/idle/move bit as external.
+	key := s & RowIndexMask
+	externalAction := key &^ (StateEntityFaceLeft | StateEntityFaceRight | StateEntityIdle | StateEntityMove)
+	lockFacing := externalAction != 0
+
+	// Always update movement flags from WASD.
 	s &^= (StateEntityMoveDown | StateEntityMoveLeft | StateEntityMoveRight | StateEntityMoveUp)
 	if KeyLeft {
-		s |= StateEntityMoveLeft | StateEntityFaceLeft
-		s &^= StateEntityFaceRight
+		s |= StateEntityMoveLeft
+		if !lockFacing {
+			s |= StateEntityFaceLeft
+			s &^= StateEntityFaceRight
+		}
 	}
 	if KeyRight {
-		s |= StateEntityMoveRight | StateEntityFaceRight
-		s &^= StateEntityFaceLeft
+		s |= StateEntityMoveRight
+		if !lockFacing {
+			s |= StateEntityFaceRight
+			s &^= StateEntityFaceLeft
+		}
 	}
 	if KeyUp {
 		s |= StateEntityMoveUp
