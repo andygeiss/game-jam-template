@@ -7,13 +7,12 @@ import (
 	"net/http"
 	"os"
 
-	"template/internal/server/adapters/ingres"
-	"template/internal/server/config"
-
 	"github.com/andygeiss/cloud-native-utils/logging"
 	"github.com/andygeiss/cloud-native-utils/messaging"
 	"github.com/andygeiss/cloud-native-utils/security"
 	"github.com/andygeiss/cloud-native-utils/service"
+	"github.com/andygeiss/game-jam-template/internal/server/adapters/ingres"
+	"github.com/andygeiss/game-jam-template/internal/server/config"
 )
 
 //go:embed assets

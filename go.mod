@@ -1,4 +1,4 @@
-module template
+module github.com/andygeiss/game-jam-template
 
 go 1.25.2
 

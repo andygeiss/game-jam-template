@@ -4,12 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"template/internal/server/adapters/ingres/ui"
-	"template/internal/server/config"
-
 	"github.com/andygeiss/cloud-native-utils/logging"
 	"github.com/andygeiss/cloud-native-utils/security"
 	"github.com/andygeiss/cloud-native-utils/templating"
+	"github.com/andygeiss/game-jam-template/internal/server/adapters/ingres/ui"
+	"github.com/andygeiss/game-jam-template/internal/server/config"
 )
 
 // Route creates a new mux with the liveness and readiness probe (/liveness, /readiness),
@@ -24,7 +23,7 @@ func Route(ctx context.Context, cfg *config.Config) *http.ServeMux {
 	engine.Parse(cfg.Templates)
 
 	// Add the UI endpoints for HTMX.
-	mux.HandleFunc("GET /ui", logging.WithLogging(cfg.Logging,
+	mux.HandleFunc("GET /game", logging.WithLogging(cfg.Logging,
 		security.WithAuth(serverSessions, ui.ViewIndex(cfg, engine, serverSessions))))
 
 	return mux

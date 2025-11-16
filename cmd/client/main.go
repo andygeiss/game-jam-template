@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
-	"template/internal/client/engine"
+
+	"github.com/andygeiss/game-jam-template/internal/client/engine"
 )
 
 const (

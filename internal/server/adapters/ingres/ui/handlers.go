@@ -3,10 +3,9 @@ package ui
 import (
 	"net/http"
 
-	"template/internal/server/config"
-
 	"github.com/andygeiss/cloud-native-utils/security"
 	"github.com/andygeiss/cloud-native-utils/templating"
+	"github.com/andygeiss/game-jam-template/internal/server/config"
 )
 
 // View defines an HTTP handler function for rendering a template with data.
