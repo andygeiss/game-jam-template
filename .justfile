@@ -10,11 +10,20 @@ build: copy
     -ldflags "-s -w" \
     -o ./bin/server ./cmd/server/main.go
 
+    @GOOS=linux GOARCH=amd64 go build \
+    -ldflags "-s -w" \
+    -o ./bin/server-linux-amd64 ./cmd/server/main.go
+
 # Copy the assets into the server directory.
 copy:
     @cp assets/*.ogg cmd/server/assets/
     @cp assets/*.wav cmd/server/assets/
     @cp assets/*.png cmd/server/assets/
+
+# Dockerize the application.
+dockerize:
+    @podman build -t andygeiss/wisp-demo:latest .
+    @podman push andygeiss/wisp-demo:latest
 
 # Run the service.
 run: build
