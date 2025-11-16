@@ -66,6 +66,7 @@ var (
 	KeyDown           bool
 	KeyE              bool
 	KeyLeft           bool
+	KeyN              bool
 	KeyQ              bool
 	KeyR              bool
 	KeyRight          bool
@@ -132,7 +133,6 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	EntityX = append(EntityX, x)
 	EntityY = append(EntityY, y)
 	EntityZ = append(EntityZ, z)
-	// Add the current index to the draw order.
 	drawOrder = append(drawOrder, index)
 	return index
 }
@@ -182,11 +182,49 @@ func BoundingBox(i int) (l, t, r, b float64) {
 	return
 }
 
+// DeleteEntity removes entity i from the entity list.
+func DeleteEntity(i int) {
+	EntityAlpha = append(EntityAlpha[:i], EntityAlpha[i+1:]...)
+	EntityFrameOffset = append(EntityFrameOffset[:i], EntityFrameOffset[i+1:]...)
+	EntityFrameTime = append(EntityFrameTime[:i], EntityFrameTime[i+1:]...)
+	EntitySpriteHeight = append(EntitySpriteHeight[:i], EntitySpriteHeight[i+1:]...)
+	EntityImageIndex = append(EntityImageIndex[:i], EntityImageIndex[i+1:]...)
+	EntityImageColumn = append(EntityImageColumn[:i], EntityImageColumn[i+1:]...)
+	EntityImageRow = append(EntityImageRow[:i], EntityImageRow[i+1:]...)
+	EntitySpeedFactor = append(EntitySpeedFactor[:i], EntitySpeedFactor[i+1:]...)
+	EntityState = append(EntityState[:i], EntityState[i+1:]...)
+	EntityRenderAsUi = append(EntityRenderAsUi[:i], EntityRenderAsUi[i+1:]...)
+	EntitySpriteWidth = append(EntitySpriteWidth[:i], EntitySpriteWidth[i+1:]...)
+	EntityX = append(EntityX[:i], EntityX[i+1:]...)
+	EntityY = append(EntityY[:i], EntityY[i+1:]...)
+	EntityZ = append(EntityZ[:i], EntityZ[i+1:]...)
+	drawOrder = append(drawOrder[:i], drawOrder[i+1:]...)
+}
+
 // HasCollision returns true if entity i collides with entity j.
 func HasCollision(i, j int) bool {
 	il, it, ir, ib := BoundingBox(i)
 	jl, jt, jr, jb := BoundingBox(j)
 	return il < jr && ir > jl && it < jb && ib > jt
+}
+
+// InitializeEntities initializes the entity state.
+func InitializeEntities() {
+	EntityAlpha = make([]float64, 0)
+	EntityFrameOffset = make([]int, 0)
+	EntityFrameTime = make([]float64, 0)
+	EntitySpriteHeight = make([]float64, 0)
+	EntityImageIndex = make([]int, 0)
+	EntityImageColumn = make([]int, 0)
+	EntityImageRow = make([]int, 0)
+	EntitySpeedFactor = make([]float64, 0)
+	EntityState = make([]uint64, 0)
+	EntityRenderAsUi = make([]bool, 0)
+	EntitySpriteWidth = make([]float64, 0)
+	EntityX = make([]float64, 0)
+	EntityY = make([]float64, 0)
+	EntityZ = make([]int, 0)
+	drawOrder = make([]int, 0)
 }
 
 // LoadImages loads an image from the given path.
@@ -457,6 +495,8 @@ func handleKeys(key string, isDown bool) {
 		KeyR = isDown
 	case "t", "T":
 		KeyT = isDown
+	case "n", "N":
+		KeyN = isDown
 	}
 }
 
