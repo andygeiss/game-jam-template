@@ -155,8 +155,8 @@ func main() {
 	select {}
 }
 
-// addMobs adds monsters to the game world.
-func addMobs() {
+// addMonsters adds monsters to the game world.
+func addMonsters() {
 	const n = 100
 	const r = 64
 	for i := 0; i < n; i++ {
@@ -444,7 +444,7 @@ func initializeGame() {
 
 	addPlayer()
 	addUi()
-	addMobs()
+	addMonsters()
 
 	engine.AddTilemap(indexImageTileset, tiles, tilemapCols, tilemapRows, tilesetCols, tilesetRows, tileW, tileH)
 }
