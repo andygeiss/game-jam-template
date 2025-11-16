@@ -74,8 +74,8 @@ var (
 	MouseDown         bool
 	MouseX            float64
 	MouseY            float64
-	RowIndexForState  map[uint64]int // row index for spritesheet
-	RowIndexMask      uint64         // enabled row bits
+	RowIndexForState  map[uint64]int
+	RowIndexMask      uint64
 
 	// Structure of Arrays to store the entities.
 	EntityAlpha        []float64
@@ -127,7 +127,7 @@ func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha flo
 	EntityImageRow = append(EntityImageRow, imgRow)
 	EntitySpeedFactor = append(EntitySpeedFactor, 1.0)
 	EntityState = append(EntityState, state)
-	EntityRenderAsUi = append(EntityRenderAsUi, false) // default = world-space
+	EntityRenderAsUi = append(EntityRenderAsUi, false) // false = world-space
 	EntitySpriteWidth = append(EntitySpriteWidth, w)
 	EntityX = append(EntityX, x)
 	EntityY = append(EntityY, y)
@@ -143,7 +143,7 @@ func AddTilemap(imgIndex int, tiles []int, tilemapCols, tilemapRows, tilesetCols
 	for j := 0; j < tilemapRows; j++ {
 		for i := 0; i < tilemapCols; i++ {
 			// Calculate the tile index in the flat array.
-			idx := j*tilemapCols + i // index in the tilemap
+			idx := j*tilemapCols + i
 			if idx < 0 || idx >= len(tiles) {
 				continue
 			}
@@ -241,8 +241,6 @@ func Run(updateScene func(dt float64)) {
 	perf := js.Global().Get("performance")
 
 	// Initialize the canvas element first.
-	// Set the canvas element's width and height.
-	// Add the canvas element to the document body.
 	canvas = doc.Call("createElement", "canvas")
 	canvas.Set("width", CanvasWidth)
 	canvas.Set("height", CanvasHeight)
@@ -283,9 +281,6 @@ func Run(updateScene func(dt float64)) {
 			dt = 0
 		}
 
-		// Updates the data and handles the logic.
-		// Update the states.
-		// Update the camera position and shake even if hit stop is active.
 		updateScene(dt)
 		updateStates(dt)
 		updateCamera(dt)
