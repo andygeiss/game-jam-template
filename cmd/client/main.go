@@ -147,7 +147,7 @@ func main() {
 
 		// Stop the game loop if the game is over by clearing the player states.
 		if gameOver {
-			engine.States[0] = 0
+			engine.EntityState[0] = 0
 			return
 		}
 
@@ -161,12 +161,12 @@ func main() {
 		updateButtons()
 
 		// Handle player-specific states.
-		s := engine.States[0]
+		s := engine.EntityState[0]
 		s = handleAction1(s)
 		s = handleAction2(s)
 		s = handleAction3(s)
 		s = handleMovement(s)
-		engine.States[0] = s
+		engine.EntityState[0] = s
 	})
 
 	// Ensure that the camera is centered on the player.
@@ -257,8 +257,8 @@ func addUi() {
 
 // checkCollision checks for collisions between the player and monsters.
 func checkCollision() {
-	for i := 1; i < len(engine.States); i++ {
-		s := engine.States[i]
+	for i := 1; i < len(engine.EntityState); i++ {
+		s := engine.EntityState[i]
 
 		// Skip non-aggressive, invisible or dead monsters.
 		if s&StateAggressive == 0 || s&StateDead == StateDead {
@@ -267,7 +267,7 @@ func checkCollision() {
 
 		// Check collision between player and monster.
 		// Player is invincible during attack1.
-		if engine.HasCollision(0, i) && engine.States[0]&StateInvincible == 0 {
+		if engine.HasCollision(0, i) && engine.EntityState[0]&StateInvincible == 0 {
 			playerLives--
 			engine.CamShakeMagnitude = 4.0
 			engine.CamShakeTime = 150
@@ -280,7 +280,7 @@ func checkCollision() {
 // fireAttack2Projectiles spawns 4 projectiles from the player position
 // flying north, east, south and west.
 func fireAttack2Projectiles() {
-	px, py := engine.Xs[0], engine.Ys[0]
+	px, py := engine.EntityX[0], engine.EntityY[0]
 
 	spawn := func(extraState uint64) {
 		fullState := engine.StateEntityAnimated |
@@ -292,7 +292,7 @@ func fireAttack2Projectiles() {
 		idx := spawnOrReuseProjectile(fullState, indexImageSpritesheet,
 			0, indexRowAction2, px, py)
 
-		engine.Ss[idx] = projectileSpeed
+		engine.EntitySpeedFactor[idx] = projectileSpeed
 	}
 
 	// North, East, South, West
@@ -306,22 +306,22 @@ func fireAttack2Projectiles() {
 func handleAction1(s uint64) (next uint64) {
 	// Check if an attack is in progress.
 	if s&StateAction1 == StateAction1 {
-		if engine.Fos[0] == 3 {
+		if engine.EntityFrameOffset[0] == 3 {
 			engine.CamShakeMagnitude = 2.5
 			engine.CamShakeTime = 100
-			engine.Ss[0] = 2.0
+			engine.EntitySpeedFactor[0] = 2.0
 		}
-		if engine.Fos[0] == 7 {
+		if engine.EntityFrameOffset[0] == 7 {
 			s &= ^(StateAction1 | StateInvincible)
-			engine.Ss[0] = 1.0
+			engine.EntitySpeedFactor[0] = 1.0
 		}
 	}
 
 	// Apply a hit window during attack frames 4..6.
-	if s&StateAction1 == StateAction1 && engine.Fos[0] >= 4 && engine.Fos[0] <= 6 {
-		for i := 1; i < len(engine.States); i++ {
-			if engine.States[i]&StateAggressive == StateAggressive &&
-				engine.States[i]&engine.StateEntityVisible == engine.StateEntityVisible {
+	if s&StateAction1 == StateAction1 && engine.EntityFrameOffset[0] >= 4 && engine.EntityFrameOffset[0] <= 6 {
+		for i := 1; i < len(engine.EntityState); i++ {
+			if engine.EntityState[i]&StateAggressive == StateAggressive &&
+				engine.EntityState[i]&engine.StateEntityVisible == engine.StateEntityVisible {
 				if engine.HasCollision(0, i) {
 					engine.PlaySound(1, 1.0, false)
 					killMonster(i)
@@ -339,8 +339,8 @@ func handleAction1(s uint64) (next uint64) {
 	if engine.KeyQ && s&StateAction1 != StateAction1 {
 		s &= ^engine.StateEntityIdle
 		s |= StateAction1 | StateInvincible
-		engine.Fos[0] = 0
-		engine.Fts[0] = 0
+		engine.EntityFrameOffset[0] = 0
+		engine.EntityFrameTime[0] = 0
 		engine.PlaySound(0, 1.0, false)
 		action1CooldownDt = action1Cooldown
 	}
@@ -376,9 +376,9 @@ func handleAction3(s uint64) (next uint64) {
 	// If action3 is currently playing, let the animation run.
 	if s&StateAction3 == StateAction3 {
 		// Restore the speed multiplier to 1.0 after the animation ends.
-		if engine.Fos[0] == engine.AnimationFrameCount-1 {
+		if engine.EntityFrameOffset[0] == engine.AnimationFrameCount-1 {
 			s &^= (StateAction3 | StateInvincible)
-			engine.Ss[0] = 1.0
+			engine.EntitySpeedFactor[0] = 1.0
 		}
 		return s
 	}
@@ -391,9 +391,9 @@ func handleAction3(s uint64) (next uint64) {
 	// Trigger only once per key press.
 	if engine.KeyR {
 		s |= (StateAction3 | StateInvincible)
-		engine.Fos[0] = 0
-		engine.Fts[0] = 0
-		engine.Ss[0] = 4.0
+		engine.EntityFrameOffset[0] = 0
+		engine.EntityFrameTime[0] = 0
+		engine.EntitySpeedFactor[0] = 4.0
 		engine.PlaySound(0, 1.0, false)
 		action3CooldownDt = action3Cooldown
 	}
@@ -404,27 +404,27 @@ func handleAction3(s uint64) (next uint64) {
 // handleMovement checks if the player is within the bounds of the arena and updates their position.
 func handleMovement(s uint64) (next uint64) {
 	// Handle player movement.
-	x, y := engine.Xs[0], engine.Ys[0]
+	x, y := engine.EntityX[0], engine.EntityY[0]
 	if x < 32 || x > worldW-32 {
-		engine.Xs[0] = math.Max(32, math.Min(x, worldW-32))
+		engine.EntityX[0] = math.Max(32, math.Min(x, worldW-32))
 	}
 	if y < 32 || y > worldH-32 {
-		engine.Ys[0] = math.Max(32, math.Min(y, worldH-32))
+		engine.EntityY[0] = math.Max(32, math.Min(y, worldH-32))
 	}
 
 	// Update monster movement.
 	// Make the monster visible if its within the bounds of the arena.
-	for i := 1; i < len(engine.States); i++ {
-		s := engine.States[i]
+	for i := 1; i < len(engine.EntityState); i++ {
+		s := engine.EntityState[i]
 		if s&engine.StateEntityVisible != engine.StateEntityVisible &&
 			s&StateAggressive == StateAggressive {
-			x, y := engine.Xs[i], engine.Ys[i]
-			s := engine.States[i]
+			x, y := engine.EntityX[i], engine.EntityY[i]
+			s := engine.EntityState[i]
 
 			// Make it visible if within bounds.
 			if x >= 32 && x <= worldW-32 && y >= 32 && y <= worldH-32 {
 				s |= engine.StateEntityVisible
-				engine.States[i] = s
+				engine.EntityState[i] = s
 			}
 		}
 	}
@@ -434,7 +434,7 @@ func handleMovement(s uint64) (next uint64) {
 
 // killMonster stops rendering and updating this monster.
 func killMonster(i int) {
-	s := engine.States[i]
+	s := engine.EntityState[i]
 
 	// Remove behavior & movement, faces and loops.
 	s &^= (StateAggressive |
@@ -446,10 +446,10 @@ func killMonster(i int) {
 
 	// Mark as dead and start one-shot animation (marked as auto-hide).
 	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityAutoHide | engine.StateEntityVisible
-	engine.States[i] = s
+	engine.EntityState[i] = s
 
 	// Create a hit-stop at the 6th attack frame of the player's attack animation.
-	engine.Fos[0] = 5
+	engine.EntityFrameOffset[0] = 5
 	engine.HitStopRemaining = 70
 
 	// Increment the monsters killed counter.
@@ -458,17 +458,17 @@ func killMonster(i int) {
 
 // moveMonsters moves the monsters towards the player position.
 func moveMonsters(dt float64) {
-	px, py := engine.Xs[0], engine.Ys[0]
+	px, py := engine.EntityX[0], engine.EntityY[0]
 	const pxPerMs = 0.05
-	for i := 1; i < len(engine.States); i++ {
-		if engine.States[i]&StateAggressive == StateAggressive {
-			dx := px - engine.Xs[i]
-			dy := py - engine.Ys[i]
+	for i := 1; i < len(engine.EntityState); i++ {
+		if engine.EntityState[i]&StateAggressive == StateAggressive {
+			dx := px - engine.EntityX[i]
+			dy := py - engine.EntityY[i]
 			dist := math.Sqrt(dx*dx + dy*dy)
 			if dist > 0 {
 				step := pxPerMs * dt
-				engine.Xs[i] += (dx / dist) * step
-				engine.Ys[i] += (dy / dist) * step
+				engine.EntityX[i] += (dx / dist) * step
+				engine.EntityY[i] += (dy / dist) * step
 			}
 		}
 	}
@@ -476,15 +476,15 @@ func moveMonsters(dt float64) {
 
 // moveProjectiles moves projectiles and handles collisions and despawn.
 func moveProjectiles() {
-	for i := 1; i < len(engine.States); i++ {
-		s := engine.States[i]
+	for i := 1; i < len(engine.EntityState); i++ {
+		s := engine.EntityState[i]
 
 		// Only care about visible projectiles.
 		if s&StateProjectile == 0 || s&engine.StateEntityVisible == 0 {
 			continue
 		}
 
-		x, y := engine.Xs[i], engine.Ys[i]
+		x, y := engine.EntityX[i], engine.EntityY[i]
 
 		// Despawn when leaving the world bounds.
 		if x < 0 || x > worldW || y < 0 || y > worldH {
@@ -494,19 +494,19 @@ func moveProjectiles() {
 				engine.StateEntityMoveDown |
 				engine.StateEntityMoveLeft |
 				engine.StateEntityMoveRight)
-			engine.States[i] = s
+			engine.EntityState[i] = s
 			continue
 		}
 
 		// Check collision with aggressive monsters.
-		for j := 1; j < len(engine.States); j++ {
+		for j := 1; j < len(engine.EntityState); j++ {
 			// Skip self.
 			if i == j {
 				continue
 			}
 
 			// Skip non-aggressive or non-visible monsters.
-			ms := engine.States[j]
+			ms := engine.EntityState[j]
 			if ms&StateAggressive == 0 ||
 				ms&engine.StateEntityVisible == 0 {
 				continue
@@ -517,7 +517,7 @@ func moveProjectiles() {
 				engine.PlaySound(1, 1.0, false)
 				killMonster(j)
 				s &^= engine.StateEntityVisible
-				engine.States[i] = s
+				engine.EntityState[i] = s
 				break
 			}
 		}
@@ -551,8 +551,8 @@ func reduceCooldowns(dt float64) {
 // renderUI renders the UI elements.
 func renderUI() {
 	alive := 0
-	for i := 1; i < len(engine.States); i++ {
-		s := engine.States[i]
+	for i := 1; i < len(engine.EntityState); i++ {
+		s := engine.EntityState[i]
 		if s&StateAggressive == StateAggressive &&
 			s&StateDead != StateDead &&
 			s&engine.StateEntityVisible == engine.StateEntityVisible {
@@ -574,16 +574,16 @@ func renderUI() {
 // spawnOrReuseProjectile spawns or reuses a projectile.
 func spawnOrReuseProjectile(state uint64, imgIdx, col, row int, x, y float64) int {
 	// Try to reuse invisible projectile.
-	for i := 1; i < len(engine.States); i++ {
-		if engine.States[i]&StateProjectile != 0 &&
-			engine.States[i]&engine.StateEntityVisible == 0 {
+	for i := 1; i < len(engine.EntityState); i++ {
+		if engine.EntityState[i]&StateProjectile != 0 &&
+			engine.EntityState[i]&engine.StateEntityVisible == 0 {
 
 			// Reuse this one.
-			engine.States[i] = state
-			engine.Xs[i] = x
-			engine.Ys[i] = y
-			engine.Fos[i] = 0
-			engine.Fts[i] = 0
+			engine.EntityState[i] = state
+			engine.EntityX[i] = x
+			engine.EntityY[i] = y
+			engine.EntityFrameOffset[i] = 0
+			engine.EntityFrameTime[i] = 0
 			return i
 		}
 	}
@@ -598,52 +598,52 @@ func spawnOrReuseProjectile(state uint64, imgIdx, col, row int, x, y float64) in
 func updateButtons() {
 	// Handle action1 button.
 	if action1CooldownDt > 0 {
-		engine.As[indexUiPlayerAction1] = 0.25
+		engine.EntityAlpha[indexUiPlayerAction1] = 0.25
 	} else {
-		engine.As[indexUiPlayerAction1] = 1.0
+		engine.EntityAlpha[indexUiPlayerAction1] = 1.0
 	}
 
 	// Handle action2 button.
 	if action2CooldownDt > 0 {
-		engine.As[indexUiPlayerAction2] = 0.25
+		engine.EntityAlpha[indexUiPlayerAction2] = 0.25
 	} else {
-		engine.As[indexUiPlayerAction2] = 1.0
+		engine.EntityAlpha[indexUiPlayerAction2] = 1.0
 	}
 
 	// Handle action3 button.
 	if action3CooldownDt > 0 {
-		engine.As[indexUiPlayerAction3] = 0.25
+		engine.EntityAlpha[indexUiPlayerAction3] = 0.25
 	} else {
-		engine.As[indexUiPlayerAction3] = 1.0
+		engine.EntityAlpha[indexUiPlayerAction3] = 1.0
 	}
 
 	// Update the player's lives.
 	switch playerLives {
 	case 1:
-		engine.As[indexUiPlayerLive1] = 1.0
-		engine.As[indexUiPlayerLive2] = 0.0
-		engine.As[indexUiPlayerLive3] = 0.0
-		engine.As[indexUiPlayerLive4] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive1] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive2] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive3] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive4] = 0.0
 	case 2:
-		engine.As[indexUiPlayerLive1] = 1.0
-		engine.As[indexUiPlayerLive2] = 1.0
-		engine.As[indexUiPlayerLive3] = 0.0
-		engine.As[indexUiPlayerLive4] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive1] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive2] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive3] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive4] = 0.0
 	case 3:
-		engine.As[indexUiPlayerLive1] = 1.0
-		engine.As[indexUiPlayerLive2] = 1.0
-		engine.As[indexUiPlayerLive3] = 1.0
-		engine.As[indexUiPlayerLive4] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive1] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive2] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive3] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive4] = 0.0
 	case 4:
-		engine.As[indexUiPlayerLive1] = 1.0
-		engine.As[indexUiPlayerLive2] = 1.0
-		engine.As[indexUiPlayerLive3] = 1.0
-		engine.As[indexUiPlayerLive4] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive1] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive2] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive3] = 1.0
+		engine.EntityAlpha[indexUiPlayerLive4] = 1.0
 	default:
-		engine.As[indexUiPlayerLive1] = 0.0
-		engine.As[indexUiPlayerLive2] = 0.0
-		engine.As[indexUiPlayerLive3] = 0.0
-		engine.As[indexUiPlayerLive4] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive1] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive2] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive3] = 0.0
+		engine.EntityAlpha[indexUiPlayerLive4] = 0.0
 		gameOver = true
 	}
 }

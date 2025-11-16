@@ -78,20 +78,20 @@ var (
 	RowIndexMask      uint64         // enabled row bits
 
 	// Structure of Arrays to store the entities.
-	States []uint64
-	As     []float64 // alpha (opacity)
-	Fos    []int     // frame offsets.
-	Fts    []float64 // frame times.
-	Hs     []float64 // sprite height
-	Ics    []int     // image col
-	Irs    []int     // image row
-	Iis    []int     // image index
-	Ss     []float64 // sprite speed factor
-	Uis    []bool    // render as UI
-	Ws     []float64 // sprite width
-	Xs     []float64 // entity x position
-	Ys     []float64 // entity y position
-	Zs     []int     // entity layer index
+	EntityAlpha        []float64
+	EntityFrameOffset  []int
+	EntityFrameTime    []float64
+	EntityImageColumn  []int
+	EntityImageIndex   []int
+	EntityImageRow     []int
+	EntityRenderAsUi   []bool
+	EntitySpeedFactor  []float64
+	EntitySpriteHeight []float64
+	EntitySpriteWidth  []float64
+	EntityState        []uint64
+	EntityX            []float64
+	EntityY            []float64
+	EntityZ            []int
 )
 
 var (
@@ -117,21 +117,21 @@ var (
 
 // AddEntity adds a new entity to the engine and returns its index.
 func AddEntity(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) (index int) {
-	index = len(States)
-	As = append(As, alpha)
-	Fos = append(Fos, 0)
-	Fts = append(Fts, 0)
-	Hs = append(Hs, h)
-	Iis = append(Iis, imgIndex)
-	Ics = append(Ics, imgCol)
-	Irs = append(Irs, imgRow)
-	Ss = append(Ss, 1.0)
-	States = append(States, state)
-	Uis = append(Uis, false) // default = world-space
-	Ws = append(Ws, w)
-	Xs = append(Xs, x)
-	Ys = append(Ys, y)
-	Zs = append(Zs, z)
+	index = len(EntityState)
+	EntityAlpha = append(EntityAlpha, alpha)
+	EntityFrameOffset = append(EntityFrameOffset, 0)
+	EntityFrameTime = append(EntityFrameTime, 0)
+	EntitySpriteHeight = append(EntitySpriteHeight, h)
+	EntityImageIndex = append(EntityImageIndex, imgIndex)
+	EntityImageColumn = append(EntityImageColumn, imgCol)
+	EntityImageRow = append(EntityImageRow, imgRow)
+	EntitySpeedFactor = append(EntitySpeedFactor, 1.0)
+	EntityState = append(EntityState, state)
+	EntityRenderAsUi = append(EntityRenderAsUi, false) // default = world-space
+	EntitySpriteWidth = append(EntitySpriteWidth, w)
+	EntityX = append(EntityX, x)
+	EntityY = append(EntityY, y)
+	EntityZ = append(EntityZ, z)
 	// Add the current index to the draw order.
 	drawOrder = append(drawOrder, index)
 	return index
@@ -167,7 +167,7 @@ func AddTilemap(imgIndex int, tiles []int, tilemapCols, tilemapRows, tilesetCols
 
 // AddUI adds a UI (screen-space) entity and returns its index.
 func AddUI(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64, z int) (index int) {
-	index = len(States)
+	index = len(EntityState)
 	AddEntity(state, imgIndex, imgCol, imgRow, w, h, x, y, alpha, z)
 	SetScreenSpace(index, true)
 	return index
@@ -175,10 +175,10 @@ func AddUI(state uint64, imgIndex, imgCol, imgRow int, w, h, x, y, alpha float64
 
 // BoundingBox returns the left, top, right, bottom for entity i.
 func BoundingBox(i int) (l, t, r, b float64) {
-	l = (Xs[i] - Ws[i]/2) + BoundingBoxNegativeMargin
-	t = Ys[i] - Hs[i]/2 + BoundingBoxNegativeMargin
-	r = l + Ws[i] - BoundingBoxNegativeMargin
-	b = t + Hs[i] - BoundingBoxNegativeMargin
+	l = (EntityX[i] - EntitySpriteWidth[i]/2) + BoundingBoxNegativeMargin
+	t = EntityY[i] - EntitySpriteHeight[i]/2 + BoundingBoxNegativeMargin
+	r = l + EntitySpriteWidth[i] - BoundingBoxNegativeMargin
+	b = t + EntitySpriteHeight[i] - BoundingBoxNegativeMargin
 	return
 }
 
@@ -353,7 +353,7 @@ func SetRenderUi(fn func()) {
 
 // SetScreenSpace sets the entity at the given index to be in screen space or world space.
 func SetScreenSpace(i int, screenSpace bool) {
-	Uis[i] = screenSpace
+	EntityRenderAsUi[i] = screenSpace
 }
 
 // SetSoundVolume sets the volume of a sound effect.
@@ -489,16 +489,16 @@ func renderEntities(dt float64, screenSpace bool) {
 		bi := drawOrder[b]
 
 		// Check for the lower Z layer first.
-		if Zs[ai] != Zs[bi] {
-			return Zs[ai] < Zs[bi]
+		if EntityZ[ai] != EntityZ[bi] {
+			return EntityZ[ai] < EntityZ[bi]
 		}
 
 		// Check for painter's order by bottom edge (Y position and height).
 		// The destination rectangle is centered around the entity's position.
 		// Thus, the Y order is a bit tricky because we need to consider
 		// the height of the entity and the position of the entity's center.
-		ya := Ys[ai] + Hs[ai]/2
-		yb := Ys[bi] + Hs[bi]/2
+		ya := EntityY[ai] + EntitySpriteHeight[ai]/2
+		yb := EntityY[bi] + EntitySpriteHeight[bi]/2
 		if ya != yb {
 			// Draw entities with lower Y coordinate first.
 			return ya < yb
@@ -522,11 +522,11 @@ func renderEntities(dt float64, screenSpace bool) {
 	alpha := 1.0
 	for _, i := range drawOrder {
 		// Skip UI elements or invisible entities.
-		if Uis[i] != screenSpace ||
-			States[i]&StateEntityVisible != StateEntityVisible {
+		if EntityRenderAsUi[i] != screenSpace ||
+			EntityState[i]&StateEntityVisible != StateEntityVisible {
 			continue
 		}
-		img := images[Iis[i]]
+		img := images[EntityImageIndex[i]]
 
 		// Skip entities without loaded images.
 		if !img.Truthy() {
@@ -535,36 +535,36 @@ func renderEntities(dt float64, screenSpace bool) {
 
 		// Calculate the destination rectangle coordinates by using entity position and size.
 		// The destination rectangle is centered around the entity's position.
-		dstX := Xs[i] - Ws[i]/2
-		dstY := Ys[i] - Hs[i]/2
+		dstX := EntityX[i] - EntitySpriteWidth[i]/2
+		dstY := EntityY[i] - EntitySpriteHeight[i]/2
 
 		// Skip entities outside the viewport or which are explicitly invisible.
-		if (dstX+Ws[i] < vLeft || dstX > vRight || dstY+Hs[i] < vTop || dstY > vBottom) ||
-			States[i]&StateEntityVisible != StateEntityVisible {
+		if (dstX+EntitySpriteWidth[i] < vLeft || dstX > vRight || dstY+EntitySpriteHeight[i] < vTop || dstY > vBottom) ||
+			EntityState[i]&StateEntityVisible != StateEntityVisible {
 			continue
 		}
 
 		// Update the animation frame if sprite is animated.
-		if States[i]&StateEntityAnimated == StateEntityAnimated {
-			Fts[i] += dt
+		if EntityState[i]&StateEntityAnimated == StateEntityAnimated {
+			EntityFrameTime[i] += dt
 
 			// Check if the animation frame has reached the maximum duration.
-			if Fts[i] >= AnimationFrameDuration {
-				Fts[i] = 0
-				Fos[i]++
+			if EntityFrameTime[i] >= AnimationFrameDuration {
+				EntityFrameTime[i] = 0
+				EntityFrameOffset[i]++
 			}
 
 			// Check if the animation frame has reached the maximum number of frames.
-			if Fos[i] >= AnimationFrameCount {
-				Fos[i] = 0
+			if EntityFrameOffset[i] >= AnimationFrameCount {
+				EntityFrameOffset[i] = 0
 
 				// Remove animation state (if not looping).
-				if States[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
-					States[i] &= ^StateEntityAnimated
+				if EntityState[i]&StateEntityAnimatedLoop != StateEntityAnimatedLoop {
+					EntityState[i] &= ^StateEntityAnimated
 
 					// Hide entity automatically after one-shot animation.
-					if States[i]&StateEntityAutoHide == StateEntityAutoHide {
-						States[i] &= ^StateEntityVisible
+					if EntityState[i]&StateEntityAutoHide == StateEntityAutoHide {
+						EntityState[i] &= ^StateEntityVisible
 					}
 				}
 			}
@@ -574,17 +574,17 @@ func renderEntities(dt float64, screenSpace bool) {
 		// and the animation frame offset (no animation = offset 0).
 		// Thus, we can use spritesheets and tilesets in production and do not need to split sprites
 		// and tiles into multiple images.
-		srcX := float64(Ics[i])*Ws[i] + float64(Fos[i])*Ws[i]
-		srcY := float64(Irs[i]) * Hs[i]
+		srcX := float64(EntityImageColumn[i])*EntitySpriteWidth[i] + float64(EntityFrameOffset[i])*EntitySpriteWidth[i]
+		srcY := float64(EntityImageRow[i]) * EntitySpriteHeight[i]
 
 		// Set the alpha value for the image if less than 1.
-		if As[i] != alpha {
-			ctx.Set("globalAlpha", As[i])
-			alpha = As[i]
+		if EntityAlpha[i] != alpha {
+			ctx.Set("globalAlpha", EntityAlpha[i])
+			alpha = EntityAlpha[i]
 		}
 
 		// Draw the image on the canvas (centered).
-		ctx.Call("drawImage", img, srcX, srcY, Ws[i], Hs[i], dstX, dstY, Ws[i], Hs[i])
+		ctx.Call("drawImage", img, srcX, srcY, EntitySpriteWidth[i], EntitySpriteHeight[i], dstX, dstY, EntitySpriteWidth[i], EntitySpriteHeight[i])
 	}
 	if alpha != 1.0 {
 		ctx.Set("globalAlpha", 1.0)
@@ -623,8 +623,8 @@ func updateCamera(dt float64) {
 
 	// Center the camera on the target if it exists.
 	if CamTarget >= 0 {
-		targetX := Xs[CamTarget]
-		targetY := Ys[CamTarget]
+		targetX := EntityX[CamTarget]
+		targetY := EntityY[CamTarget]
 		camX = targetX - width/2.0
 		camY = targetY - height/2.0
 	}
@@ -681,7 +681,7 @@ func updateCamera(dt float64) {
 // updateStates transitions every entity from one state to another.
 func updateStates(dt float64) {
 	// Handle input for the player entity (0).
-	s := States[0]
+	s := EntityState[0]
 
 	// Detect if an "external action" is active (e.g. attack, dash, death, ...).
 	// We treat any bit in RowIndexMask that is not a face/idle/move bit as external.
@@ -711,10 +711,10 @@ func updateStates(dt float64) {
 	if KeyDown {
 		s |= StateEntityMoveDown
 	}
-	States[0] = s
+	EntityState[0] = s
 
 	// Update the state of each entity.
-	for i, s := range States {
+	for i, s := range EntityState {
 		// Handle engine-known states.
 		vx, vy := 0.0, 0.0
 		if s&StateEntityMoveLeft != 0 {
@@ -734,11 +734,11 @@ func updateStates(dt float64) {
 		// Normalize the velocity and use the sprite speed factor.
 		if n := vx*vx + vy*vy; n > 0 {
 			inv := 1.0 / math.Sqrt(n)
-			sf := Ss[i]
+			sf := EntitySpeedFactor[i]
 			vx *= inv * sf
 			vy *= inv * sf
-			Xs[i] += vx * EntitySpeed * dt
-			Ys[i] += vy * EntitySpeed * dt
+			EntityX[i] += vx * EntitySpeed * dt
+			EntityY[i] += vy * EntitySpeed * dt
 			s &^= StateEntityIdle
 			s |= StateEntityMove
 		} else {
@@ -754,13 +754,13 @@ func updateStates(dt float64) {
 		if externalAction != 0 {
 			key &^= (StateEntityMove | StateEntityIdle)
 		}
-		if row, ok := RowIndexForState[key]; ok && Irs[i] != row {
-			Irs[i] = row
-			Fos[i] = 0
-			Fts[i] = 0
+		if row, ok := RowIndexForState[key]; ok && EntityImageRow[i] != row {
+			EntityImageRow[i] = row
+			EntityFrameOffset[i] = 0
+			EntityFrameTime[i] = 0
 		}
 
 		// Save the new state.
-		States[i] = s
+		EntityState[i] = s
 	}
 }
