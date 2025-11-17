@@ -362,16 +362,6 @@ func Run(updateScene func(dt float64)) {
 		renderEntities(dt, true)
 		renderUi()
 
-		// Show "Click to start the game" message if there is no player input.
-		// We need a player input to play sound effects (security reason).
-		if !HasPlayerInput {
-			ctx.Set("fillStyle", "white")
-			ctx.Set("font", "24px Arial")
-			ctx.Set("textAlign", "center")
-			ctx.Set("textBaseline", "middle")
-			ctx.Call("fillText", "Click to start the game", CanvasWidth/2, CanvasHeight/2)
-		}
-
 		// Call the loop function recursively.
 		js.Global().Call("requestAnimationFrame", loopFn)
 		return nil

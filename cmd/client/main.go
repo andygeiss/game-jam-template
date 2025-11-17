@@ -567,6 +567,13 @@ func reduceCooldowns(dt float64) {
 
 // renderUI renders the UI elements.
 func renderUI() {
+
+	// Skip rendering if the game is not running.
+	if !engine.HasPlayerInput {
+		engine.RenderText(engine.CanvasWidth/2, engine.CanvasHeight/2, "Click to start the game", "white", "24px Arial", "center")
+		return
+	}
+
 	alive := 0
 	for i := 1; i < len(engine.EntityState); i++ {
 		s := engine.EntityState[i]
