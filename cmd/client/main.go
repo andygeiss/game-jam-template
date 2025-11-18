@@ -11,18 +11,6 @@ import (
 )
 
 const (
-	projectileSpeed = 3.0
-	tilemapCols     = 33
-	tilemapRows     = 21
-	tilesetCols     = 3
-	tilesetRows     = 5
-	tileW           = 32
-	tileH           = 32
-	worldW          = float64(tilemapCols) * tileW
-	worldH          = float64(tilemapRows) * tileH
-)
-
-const (
 	indexImageSpritesheet = iota
 	indexImageTileset
 	indexImageUi
@@ -42,7 +30,36 @@ const (
 	indexRowAction3Left
 )
 
+const (
+	stateAction1 = uint64(1 << (iota + 16))
+	stateAction2
+	stateAction3
+	stateAggressive
+	stateDead
+	stateInvincible
+	stateProjectile
+)
+
+const (
+	projectileSpeed = 3.0
+	tilemapCols     = 33
+	tilemapRows     = 21
+	tilesetCols     = 3
+	tilesetRows     = 5
+	tileW           = 32
+	tileH           = 32
+	worldW          = float64(tilemapCols) * tileW
+	worldH          = float64(tilemapRows) * tileH
+)
+
 var (
+	action1Cooldown              = 1000.0
+	action2Cooldown              = 3000.0
+	action3Cooldown              = 5000.0
+	action1CooldownDt    float64 = 0
+	action2CooldownDt    float64 = 0
+	action3CooldownDt    float64 = 0
+	gameOver             bool
 	indexUiButtonQ       int
 	indexUiButtonE       int
 	indexUiButtonR       int
@@ -54,53 +71,11 @@ var (
 	indexUiPlayerLive2   int
 	indexUiPlayerLive3   int
 	indexUiPlayerLive4   int
-)
-
-var (
-	action1Cooldown           = 1000.0
-	action2Cooldown           = 3000.0
-	action3Cooldown           = 5000.0
-	action1CooldownDt float64 = 0
-	action2CooldownDt float64 = 0
-	action3CooldownDt float64 = 0
-	gameOver          bool
-	playerLives       int
-	monstersKilled    int
-)
-
-const (
-	StateAction1 = uint64(1 << (iota + 16))
-	StateAction2
-	StateAction3
-	StateAggressive
-	StateDead
-	StateInvincible
-	StateProjectile
+	playerLives          int
+	monstersKilled       int
 )
 
 func main() {
-	// Load the assets.
-	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png")
-	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
-
-	// Load the state mapping.
-	engine.RowIndexMask = StateAction1 | StateAction2 | StateAction3 |
-		StateAggressive | StateDead |
-		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
-		engine.StateEntityIdle | engine.StateEntityMove
-
-	engine.RowIndexForState = map[uint64]int{
-		engine.StateEntityFaceRight | StateAction1:           indexRowAction1Right,
-		engine.StateEntityFaceLeft | StateAction1:            indexRowAction1Left,
-		engine.StateEntityFaceRight | StateAction3:           indexRowAction3Right,
-		engine.StateEntityFaceLeft | StateAction3:            indexRowAction3Left,
-		engine.StateEntityFaceRight | engine.StateEntityIdle: indexRowIdleRight,
-		engine.StateEntityFaceLeft | engine.StateEntityIdle:  indexRowIdleLeft,
-		engine.StateEntityFaceRight | engine.StateEntityMove: indexRowMoveRight,
-		engine.StateEntityFaceLeft | engine.StateEntityMove:  indexRowMoveLeft,
-		StateDead: indexRowDeath,
-	}
-
 	// Add the entities.
 	initializeGame()
 
@@ -184,7 +159,7 @@ func addMonsters() {
 		// Add the monster (as invisible) to the game world.
 		// It will be visible when the monster moves into the arena boundary.
 		engine.AddEntity(
-			engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|StateAggressive,
+			engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|stateAggressive,
 			indexImageSpritesheet, 0, indexRowMonsterMove, 32, 32,
 			x, y, 1, 1,
 		)
@@ -237,13 +212,13 @@ func checkCollision() {
 		s := engine.EntityState[i]
 
 		// Skip non-aggressive, invisible or dead monsters.
-		if s&StateAggressive == 0 || s&StateDead == StateDead {
+		if s&stateAggressive == 0 || s&stateDead == stateDead {
 			continue
 		}
 
 		// Check collision between player and monster.
 		// Player is invincible during attack1.
-		if engine.HasCollision(0, i) && engine.EntityState[0]&StateInvincible == 0 {
+		if engine.HasCollision(0, i) && engine.EntityState[0]&stateInvincible == 0 {
 			playerLives--
 			engine.CamShakeMagnitude = 4.0
 			engine.CamShakeTime = 150
@@ -262,7 +237,7 @@ func fireAttack2Projectiles() {
 		fullState := engine.StateEntityAnimated |
 			engine.StateEntityAnimatedLoop |
 			engine.StateEntityVisible |
-			extraState | StateProjectile
+			extraState | stateProjectile
 
 		// Reuse existing projectile if available.
 		idx := spawnOrReuseProjectile(fullState, indexImageSpritesheet,
@@ -281,22 +256,22 @@ func fireAttack2Projectiles() {
 // handleAction1 handles the player's action1 state and returns the next state.
 func handleAction1(s uint64) (next uint64) {
 	// Check if an attack is in progress.
-	if s&StateAction1 == StateAction1 {
+	if s&stateAction1 == stateAction1 {
 		if engine.EntityFrameOffset[0] == 3 {
 			engine.CamShakeMagnitude = 2.5
 			engine.CamShakeTime = 100
 			engine.EntitySpeedFactor[0] = 2.0
 		}
 		if engine.EntityFrameOffset[0] == 7 {
-			s &= ^(StateAction1 | StateInvincible)
+			s &= ^(stateAction1 | stateInvincible)
 			engine.EntitySpeedFactor[0] = 1.0
 		}
 	}
 
 	// Apply a hit window during attack frames 4..6.
-	if s&StateAction1 == StateAction1 && engine.EntityFrameOffset[0] >= 4 && engine.EntityFrameOffset[0] <= 6 {
+	if s&stateAction1 == stateAction1 && engine.EntityFrameOffset[0] >= 4 && engine.EntityFrameOffset[0] <= 6 {
 		for i := 1; i < len(engine.EntityState); i++ {
-			if engine.EntityState[i]&StateAggressive == StateAggressive &&
+			if engine.EntityState[i]&stateAggressive == stateAggressive &&
 				engine.EntityState[i]&engine.StateEntityVisible == engine.StateEntityVisible {
 				if engine.HasCollision(0, i) {
 					engine.PlaySound(1, 1.0, false)
@@ -312,9 +287,9 @@ func handleAction1(s uint64) (next uint64) {
 	}
 
 	// Check if the player is pressing the attack button.
-	if engine.KeyQ && s&StateAction1 != StateAction1 {
+	if engine.KeyQ && s&stateAction1 != stateAction1 {
 		s &= ^engine.StateEntityIdle
-		s |= StateAction1 | StateInvincible
+		s |= stateAction1 | stateInvincible
 		engine.EntityFrameOffset[0] = 0
 		engine.EntityFrameTime[0] = 0
 		engine.PlaySound(0, 1.0, false)
@@ -327,12 +302,12 @@ func handleAction1(s uint64) (next uint64) {
 func handleAction2(s uint64) (next uint64) {
 	// Check for cooldown and trigger only once per key press.
 	if action2CooldownDt > 0 {
-		return s &^ StateAction2
+		return s &^ stateAction2
 	}
 
 	// Trigger only once per key press.
-	if engine.KeyE && s&StateAction2 == 0 {
-		s |= StateAction2
+	if engine.KeyE && s&stateAction2 == 0 {
+		s |= stateAction2
 		fireAttack2Projectiles()
 		engine.PlaySound(0, 1.0, false)
 
@@ -342,7 +317,7 @@ func handleAction2(s uint64) (next uint64) {
 
 	// Clear action state as soon as possible.
 	if !engine.KeyE {
-		s &^= StateAction2
+		s &^= stateAction2
 	}
 	return s
 }
@@ -350,10 +325,10 @@ func handleAction2(s uint64) (next uint64) {
 // handleAction3 handles the third action of the player.
 func handleAction3(s uint64) (next uint64) {
 	// If action3 is currently playing, let the animation run.
-	if s&StateAction3 == StateAction3 {
+	if s&stateAction3 == stateAction3 {
 		// Restore the speed multiplier to 1.0 after the animation ends.
 		if engine.EntityFrameOffset[0] == engine.AnimationFrameCount-1 {
-			s &^= (StateAction3 | StateInvincible)
+			s &^= (stateAction3 | stateInvincible)
 			engine.EntitySpeedFactor[0] = 1.0
 		}
 		return s
@@ -366,7 +341,7 @@ func handleAction3(s uint64) (next uint64) {
 
 	// Trigger only once per key press.
 	if engine.KeyR {
-		s |= (StateAction3 | StateInvincible)
+		s |= (stateAction3 | stateInvincible)
 		engine.EntityFrameOffset[0] = 0
 		engine.EntityFrameTime[0] = 0
 		engine.EntitySpeedFactor[0] = 4.0
@@ -393,7 +368,7 @@ func handleMovement(s uint64) (next uint64) {
 	for i := 1; i < len(engine.EntityState); i++ {
 		s := engine.EntityState[i]
 		if s&engine.StateEntityVisible != engine.StateEntityVisible &&
-			s&StateAggressive == StateAggressive {
+			s&stateAggressive == stateAggressive {
 			x, y := engine.EntityX[i], engine.EntityY[i]
 			s := engine.EntityState[i]
 
@@ -413,6 +388,28 @@ func initializeGame() {
 	// Initialize game state.
 	playerLives = 4
 	monstersKilled = 0
+
+	// Load the assets.
+	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png")
+	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
+
+	// Load the state mapping.
+	engine.RowIndexMask = stateAction1 | stateAction2 | stateAction3 |
+		stateAggressive | stateDead |
+		engine.StateEntityFaceLeft | engine.StateEntityFaceRight |
+		engine.StateEntityIdle | engine.StateEntityMove
+
+	engine.RowIndexForState = map[uint64]int{
+		engine.StateEntityFaceRight | stateAction1:           indexRowAction1Right,
+		engine.StateEntityFaceLeft | stateAction1:            indexRowAction1Left,
+		engine.StateEntityFaceRight | stateAction3:           indexRowAction3Right,
+		engine.StateEntityFaceLeft | stateAction3:            indexRowAction3Left,
+		engine.StateEntityFaceRight | engine.StateEntityIdle: indexRowIdleRight,
+		engine.StateEntityFaceLeft | engine.StateEntityIdle:  indexRowIdleLeft,
+		engine.StateEntityFaceRight | engine.StateEntityMove: indexRowMoveRight,
+		engine.StateEntityFaceLeft | engine.StateEntityMove:  indexRowMoveLeft,
+		stateDead: indexRowDeath,
+	}
 
 	// Set the tilemap.
 	tiles := []int{
@@ -454,7 +451,7 @@ func killMonster(i int) {
 	s := engine.EntityState[i]
 
 	// Remove behavior & movement, faces and loops.
-	s &^= (StateAggressive |
+	s &^= (stateAggressive |
 		engine.StateEntityMove | engine.StateEntityIdle |
 		engine.StateEntityMoveDown | engine.StateEntityMoveLeft |
 		engine.StateEntityMoveRight | engine.StateEntityMoveUp |
@@ -462,7 +459,7 @@ func killMonster(i int) {
 		engine.StateEntityFaceLeft | engine.StateEntityFaceRight)
 
 	// Mark as dead and start one-shot animation (marked as auto-hide).
-	s |= StateDead | engine.StateEntityAnimated | engine.StateEntityAutoHide | engine.StateEntityVisible
+	s |= stateDead | engine.StateEntityAnimated | engine.StateEntityAutoHide | engine.StateEntityVisible
 	engine.EntityState[i] = s
 
 	// Create a hit-stop at the 6th attack frame of the player's attack animation.
@@ -478,7 +475,7 @@ func moveMonsters(dt float64) {
 	px, py := engine.EntityX[0], engine.EntityY[0]
 	const pxPerMs = 0.05
 	for i := 1; i < len(engine.EntityState); i++ {
-		if engine.EntityState[i]&StateAggressive == StateAggressive {
+		if engine.EntityState[i]&stateAggressive == stateAggressive {
 			dx := px - engine.EntityX[i]
 			dy := py - engine.EntityY[i]
 			dist := math.Sqrt(dx*dx + dy*dy)
@@ -497,7 +494,7 @@ func moveProjectiles() {
 		s := engine.EntityState[i]
 
 		// Only care about visible projectiles.
-		if s&StateProjectile == 0 || s&engine.StateEntityVisible == 0 {
+		if s&stateProjectile == 0 || s&engine.StateEntityVisible == 0 {
 			continue
 		}
 
@@ -524,7 +521,7 @@ func moveProjectiles() {
 
 			// Skip non-aggressive or non-visible monsters.
 			ms := engine.EntityState[j]
-			if ms&StateAggressive == 0 ||
+			if ms&stateAggressive == 0 ||
 				ms&engine.StateEntityVisible == 0 {
 				continue
 			}
@@ -577,8 +574,8 @@ func renderUI() {
 	alive := 0
 	for i := 1; i < len(engine.EntityState); i++ {
 		s := engine.EntityState[i]
-		if s&StateAggressive == StateAggressive &&
-			s&StateDead != StateDead &&
+		if s&stateAggressive == stateAggressive &&
+			s&stateDead != stateDead &&
 			s&engine.StateEntityVisible == engine.StateEntityVisible {
 			alive++
 		}
@@ -600,7 +597,7 @@ func renderUI() {
 func spawnOrReuseProjectile(state uint64, imgIdx, col, row int, x, y float64) int {
 	// Try to reuse invisible projectile.
 	for i := 1; i < len(engine.EntityState); i++ {
-		if engine.EntityState[i]&StateProjectile != 0 &&
+		if engine.EntityState[i]&stateProjectile != 0 &&
 			engine.EntityState[i]&engine.StateEntityVisible == 0 {
 
 			// Reuse this one.
