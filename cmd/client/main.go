@@ -14,6 +14,7 @@ const (
 	indexImageSpritesheet = iota
 	indexImageTileset
 	indexImageUi
+	indexImageBoss
 )
 
 const (
@@ -41,6 +42,7 @@ const (
 )
 
 const (
+	monstersMax     = 10
 	projectileSpeed = 3.0
 	tilemapCols     = 33
 	tilemapRows     = 21
@@ -59,6 +61,7 @@ var (
 	action1CooldownDt    float64 = 0
 	action2CooldownDt    float64 = 0
 	action3CooldownDt    float64 = 0
+	bossSpawned          bool
 	gameOver             bool
 	indexUiButtonQ       int
 	indexUiButtonE       int
@@ -102,6 +105,14 @@ func main() {
 			return
 		}
 
+		// Add a boss (only once) if all monsters are killed.
+		if monstersKilled >= monstersMax && !bossSpawned {
+			addBoss()
+			engine.CamShakeMagnitude = 10.0
+			engine.CamShakeTime = 1000.0
+			bossSpawned = true
+		}
+
 		// Play the title sound if it's not already playing.
 		engine.PlaySound(2, 0.25, true)
 
@@ -130,9 +141,18 @@ func main() {
 	select {}
 }
 
+// addBoss adds a boss at the center of the world.
+func addBoss() {
+	engine.AddEntity(
+		engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|stateAggressive,
+		indexImageBoss, 0, 0, 96, 96,
+		worldW/2, worldH/2, 1, 1,
+	)
+}
+
 // addMonsters adds monsters to the game world.
 func addMonsters() {
-	const n = 100
+	const n = monstersMax
 	const r = 64
 	for i := 0; i < n; i++ {
 		// Randomize space between monsters.
@@ -390,7 +410,7 @@ func initializeGame() {
 	monstersKilled = 0
 
 	// Load the assets.
-	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png")
+	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png", "/assets/boss.png")
 	engine.LoadSounds("/assets/attack.wav", "/assets/hit.wav", "/assets/music.ogg")
 
 	// Load the state mapping.
