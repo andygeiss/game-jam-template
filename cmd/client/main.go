@@ -79,11 +79,7 @@ var (
 )
 
 func main() {
-	// Add the entities.
-	initializeGame()
-
-	// Wire up the UI.
-	engine.SetRenderUi(renderUI)
+	enterScene()
 
 	// Start the game loop.
 	engine.Run(func(dt float64) {
@@ -94,7 +90,7 @@ func main() {
 
 		// Restart the game if the player presses 'N'.
 		if engine.KeyN {
-			initializeGame()
+			enterScene()
 			engine.KeyN = false
 			gameOver = false
 		}
@@ -403,11 +399,13 @@ func handleMovement(s uint64) (next uint64) {
 	return s
 }
 
-// Initialize the game state.
-func initializeGame() {
-	// Initialize game state.
+// Initialize the scene.
+func enterScene() {
 	playerLives = 4
 	monstersKilled = 0
+
+	// Wire up the UI.
+	engine.SetRenderUi(renderUI)
 
 	// Load the assets.
 	engine.LoadImages("/assets/spritesheet.png", "/assets/tileset.png", "/assets/ui.png", "/assets/boss.png")
