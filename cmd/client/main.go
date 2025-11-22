@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"strings"
 
 	"github.com/andygeiss/game-jam-template/internal/client/engine"
 )
@@ -29,6 +30,7 @@ const (
 	indexRowAction2
 	indexRowAction3Right
 	indexRowAction3Left
+	indexRowBossAttack
 )
 
 const (
@@ -39,9 +41,12 @@ const (
 	stateDead
 	stateInvincible
 	stateProjectile
+	stateBossProjectile
 )
 
 const (
+	bossDamageDelay = 1000.0
+	bossMaxLives    = 10
 	monstersMax     = 10
 	projectileSpeed = 3.0
 	tilemapCols     = 33
@@ -61,6 +66,11 @@ var (
 	action1CooldownDt    float64 = 0
 	action2CooldownDt    float64 = 0
 	action3CooldownDt    float64 = 0
+	bossAttackCooldown           = 3000.0
+	bossAttackCooldownDt float64
+	bossDamageDt         float64
+	bossIndex            int
+	bossLives            int
 	bossSpawned          bool
 	gameOver             bool
 	indexUiButtonQ       int
@@ -114,13 +124,14 @@ func main() {
 
 		reduceCooldowns(dt)
 		moveMonsters(dt)
-		moveProjectiles()
-		checkCollision()
+		updateBoss(dt)
+		moveProjectiles(dt)
+		checkCollision(dt)
 		updateButtons()
 
 		// Handle player-specific states.
 		s := engine.EntityState[0]
-		s = handleAction1(s)
+		s = handleAction1(dt, s)
 		s = handleAction2(s)
 		s = handleAction3(s)
 		s = handleMovement(s)
@@ -139,11 +150,16 @@ func main() {
 
 // addBoss adds a boss at the center of the world.
 func addBoss() {
-	engine.AddEntity(
+	bossIndex = engine.AddEntity(
 		engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|stateAggressive,
 		indexImageBoss, 0, 0, 96, 96,
 		worldW/2, worldH/2, 1, 1,
 	)
+
+	bossLives = bossMaxLives
+
+	// Start his attack cooldown so he doesn't shoot immediately.
+	bossAttackCooldownDt = 1000.0
 }
 
 // addMonsters adds monsters to the game world.
@@ -223,7 +239,7 @@ func addUi() {
 }
 
 // checkCollision checks for collisions between the player and monsters.
-func checkCollision() {
+func checkCollision(dt float64) {
 	for i := 1; i < len(engine.EntityState); i++ {
 		s := engine.EntityState[i]
 
@@ -239,8 +255,45 @@ func checkCollision() {
 			engine.CamShakeMagnitude = 4.0
 			engine.CamShakeTime = 150
 			engine.HitStopRemaining = 150
-			killMonster(i)
+
+			// Damage boss or kill monster.
+			if i == bossIndex {
+				damageBoss(dt)
+			} else {
+				killMonster(i)
+			}
 		}
+	}
+}
+
+// damageBoss deals damage to the boss.
+func damageBoss(dt float64) {
+	if !bossSpawned || bossIndex < 0 {
+		return
+	}
+	if bossDamageDt > 0 {
+		return
+	}
+	if bossLives <= 0 {
+		return
+	}
+
+	// Update the last boss damage time.
+	bossDamageDt += dt
+	if bossDamageDt >= bossDamageDelay {
+		bossDamageDt = 0
+	}
+
+	bossLives--
+
+	// Feedback on hit (shake + hit stop).
+	engine.CamShakeMagnitude = 4.0
+	engine.CamShakeTime = 150
+	engine.HitStopRemaining = 70
+
+	// Kill boss when HP reaches 0.
+	if bossLives <= 0 {
+		killMonster(bossIndex)
 	}
 }
 
@@ -270,7 +323,7 @@ func fireAttack2Projectiles() {
 }
 
 // handleAction1 handles the player's action1 state and returns the next state.
-func handleAction1(s uint64) (next uint64) {
+func handleAction1(dt float64, s uint64) (next uint64) {
 	// Check if an attack is in progress.
 	if s&stateAction1 == stateAction1 {
 		if engine.EntityFrameOffset[0] == 3 {
@@ -285,13 +338,23 @@ func handleAction1(s uint64) (next uint64) {
 	}
 
 	// Apply a hit window during attack frames 4..6.
-	if s&stateAction1 == stateAction1 && engine.EntityFrameOffset[0] >= 4 && engine.EntityFrameOffset[0] <= 6 {
+	if s&stateAction1 == stateAction1 &&
+		engine.EntityFrameOffset[0] >= 4 &&
+		engine.EntityFrameOffset[0] <= 6 {
+
 		for i := 1; i < len(engine.EntityState); i++ {
 			if engine.EntityState[i]&stateAggressive == stateAggressive &&
 				engine.EntityState[i]&engine.StateEntityVisible == engine.StateEntityVisible {
+
 				if engine.HasCollision(0, i) {
+
 					engine.PlaySound(1, 1.0, false)
-					killMonster(i)
+
+					if i == bossIndex {
+						damageBoss(dt)
+					} else {
+						killMonster(i)
+					}
 				}
 			}
 		}
@@ -401,8 +464,14 @@ func handleMovement(s uint64) (next uint64) {
 
 // Initialize the scene.
 func enterScene() {
-	playerLives = 4
+	// Initialize player variables.
 	monstersKilled = 0
+	playerLives = 4
+
+	// Initialize boss variables.
+	bossAttackCooldownDt = 0
+	bossIndex = -1
+	bossSpawned = false
 
 	// Wire up the UI.
 	engine.SetRenderUi(renderUI)
@@ -464,6 +533,58 @@ func enterScene() {
 	engine.AddTilemap(indexImageTileset, tiles, tilemapCols, tilemapRows, tilesetCols, tilesetRows, tileW, tileH)
 }
 
+// fireBossEnergyBalls spawns n projectiles from the boss position
+// in multiple directions (up, down, left, right, and diagonals).
+func fireBossEnergyBalls(n int) {
+	if !bossSpawned || bossIndex < 0 {
+		return
+	}
+	if n <= 0 {
+		return
+	}
+
+	bx, by := engine.EntityX[bossIndex], engine.EntityY[bossIndex]
+
+	// 8 canonical directions using engine's movement flags.
+	directions := []uint64{
+		engine.StateEntityMoveUp,
+		engine.StateEntityMoveUp | engine.StateEntityMoveRight,
+		engine.StateEntityMoveRight,
+		engine.StateEntityMoveDown | engine.StateEntityMoveRight,
+		engine.StateEntityMoveDown,
+		engine.StateEntityMoveDown | engine.StateEntityMoveLeft,
+		engine.StateEntityMoveLeft,
+		engine.StateEntityMoveUp | engine.StateEntityMoveLeft,
+	}
+
+	maxDir := len(directions)
+	if n > maxDir {
+		n = maxDir
+	}
+
+	step := maxDir / n
+	if step == 0 {
+		step = 1
+	}
+
+	for i, d := 0, 0; i < n && d < maxDir; i, d = i+1, d+step {
+		dir := directions[d%maxDir]
+
+		state := engine.StateEntityAnimated |
+			engine.StateEntityAnimatedLoop |
+			engine.StateEntityVisible |
+			stateProjectile |
+			stateBossProjectile |
+			dir
+
+		idx := spawnOrReuseProjectile(state, indexImageSpritesheet,
+			0, indexRowBossAttack, bx, by)
+
+		// Slightly slower/faster than player projectiles if you want.
+		engine.EntitySpeedFactor[idx] = projectileSpeed * 0.8
+	}
+}
+
 // killMonster stops rendering and updating this monster.
 func killMonster(i int) {
 	s := engine.EntityState[i]
@@ -507,7 +628,7 @@ func moveMonsters(dt float64) {
 }
 
 // moveProjectiles moves projectiles and handles collisions and despawn.
-func moveProjectiles() {
+func moveProjectiles(dt float64) {
 	for i := 1; i < len(engine.EntityState); i++ {
 		s := engine.EntityState[i]
 
@@ -530,24 +651,49 @@ func moveProjectiles() {
 			continue
 		}
 
-		// Check collision with aggressive monsters.
+		// Boss projectiles: hit the player.
+		if s&stateBossProjectile != 0 {
+			// Don't hit if player is invincible (during action1 / action3).
+			if engine.EntityState[0]&stateInvincible == 0 &&
+				engine.HasCollision(i, 0) {
+
+				playerLives--
+				engine.CamShakeMagnitude = 4.0
+				engine.CamShakeTime = 200
+				engine.HitStopRemaining = 100
+
+				// Hide projectile.
+				s &^= engine.StateEntityVisible
+				engine.EntityState[i] = s
+			}
+			continue
+		}
+
+		// Player projectiles: hit aggressive monsters/boss.
 		for j := 1; j < len(engine.EntityState); j++ {
 			// Skip self.
 			if i == j {
 				continue
 			}
 
-			// Skip non-aggressive or non-visible monsters.
+			// Skip non-aggressive or non-visible monsters/boss.
 			ms := engine.EntityState[j]
 			if ms&stateAggressive == 0 ||
 				ms&engine.StateEntityVisible == 0 {
 				continue
 			}
 
-			// Kill the monster if it's hit by the projectile.
+			// Kill the monster/boss if it's hit by the projectile.
 			if engine.HasCollision(i, j) {
 				engine.PlaySound(1, 1.0, false)
-				killMonster(j)
+
+				if j == bossIndex {
+					damageBoss(dt)
+				} else {
+					killMonster(j)
+				}
+
+				// Hide projectile.
 				s &^= engine.StateEntityVisible
 				engine.EntityState[i] = s
 				break
@@ -605,6 +751,22 @@ func renderUI() {
 	killedText := fmt.Sprintf("Monsters killed: %d", monstersKilled)
 	engine.RenderText(8, 32, killedText, "yellow", "16px Arial", "left")
 
+	// Boss health bar.
+	if bossSpawned && bossIndex >= 0 && engine.EntityState[bossIndex]&stateDead == 0 {
+		if bossLives < 0 {
+			bossLives = 0
+		}
+		if bossLives > bossMaxLives {
+			bossLives = bossMaxLives
+		}
+
+		filled := strings.Repeat("█", bossLives)
+		empty := strings.Repeat("░", bossMaxLives-bossLives)
+		bar := fmt.Sprintf("[%s%s]", filled, empty)
+
+		engine.RenderText(engine.CanvasWidth/2, 64, bar, "red", "16px Arial", "center")
+	}
+
 	if gameOver {
 		engine.RenderText(engine.CanvasWidth/2, engine.CanvasHeight/2, "Game Over", "red", "24px Arial", "center")
 		engine.RenderText(engine.CanvasWidth/2, engine.CanvasHeight/2+24, "Press N for new game", "red", "16px Arial", "center")
@@ -619,11 +781,13 @@ func spawnOrReuseProjectile(state uint64, imgIdx, col, row int, x, y float64) in
 			engine.EntityState[i]&engine.StateEntityVisible == 0 {
 
 			// Reuse this one.
+			engine.EntityFrameOffset[i] = 0
+			engine.EntityFrameTime[i] = 0
+			engine.EntityImageColumn[i] = col
+			engine.EntityImageRow[i] = row
 			engine.EntityState[i] = state
 			engine.EntityX[i] = x
 			engine.EntityY[i] = y
-			engine.EntityFrameOffset[i] = 0
-			engine.EntityFrameTime[i] = 0
 			return i
 		}
 	}
@@ -632,6 +796,34 @@ func spawnOrReuseProjectile(state uint64, imgIdx, col, row int, x, y float64) in
 	return engine.AddEntity(
 		state, imgIdx, col, row, 32, 32, x, y, 1.0, 2,
 	)
+}
+
+// updateBoss handles boss-specific logic (ranged attack).
+func updateBoss(dt float64) {
+	if !bossSpawned || bossIndex < 0 {
+		return
+	}
+
+	s := engine.EntityState[bossIndex]
+	if s&stateDead == stateDead {
+		return
+	}
+
+	// Reduce cooldown.
+	if bossAttackCooldownDt > 0 {
+		bossAttackCooldownDt -= dt
+	}
+
+	if bossAttackCooldownDt <= 0 {
+		// Choose how many energy balls to shoot (1..N).
+		// Example: more projectiles when fewer monsters are alive.
+		n := 8
+
+		fireBossEnergyBalls(n)
+		engine.PlaySound(0, 1.0, false) // reuse attack sound
+
+		bossAttackCooldownDt = bossAttackCooldown
+	}
 }
 
 // updateButtons updates the UI buttons.

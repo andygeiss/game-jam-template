@@ -1,8 +1,8 @@
 module github.com/andygeiss/game-jam-template
 
-go 1.25.2
+go 1.25.4
 
-require github.com/andygeiss/cloud-native-utils v0.2.11
+require github.com/andygeiss/cloud-native-utils v0.2.12
 
 require (
 	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
