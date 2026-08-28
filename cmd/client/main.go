@@ -176,8 +176,9 @@ func update(dt float64) {
 	}
 }
 
-// addBoss puts the boss at the arena center, announced by a screen shake. The
-// hero starts there too, so the hurt cooldown covers the moment it appears.
+// addBoss puts the boss at the arena center, announced by a screen shake. It
+// appears on top of the hero if the hero is still there, so the hurt cooldown
+// covers that moment.
 func addBoss() {
 	bossIndex = engine.AddEntity(
 		engine.StateEntityAnimated|engine.StateEntityAnimatedLoop|stateAggressive,
@@ -544,13 +545,13 @@ func killMonster(i int) {
 	}
 }
 
-// moveMonsters walks every live monster toward the hero. The boss stays
-// where it spawned and fights at range.
+// moveMonsters walks every live monster, the boss included, toward the
+// hero. The boss fires at range as well; closing in is what makes it a fight.
 func moveMonsters(dt float64) {
 	const pxPerMs = 0.05
 	px, py := engine.EntityX[0], engine.EntityY[0]
 	for i := 1; i < len(engine.EntityState); i++ {
-		if i == bossIndex || engine.EntityState[i]&stateAggressive == 0 {
+		if engine.EntityState[i]&stateAggressive == 0 {
 			continue
 		}
 		dx := px - engine.EntityX[i]

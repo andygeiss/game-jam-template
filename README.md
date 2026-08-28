@@ -27,7 +27,7 @@ Your job is to make it *yours*: swap the sprites, tweak the numbers, add a mecha
 |---|---|
 | 🎮 **A complete game loop** | Idle → fight → boss → win or game over → restart. No placeholder screens. |
 | 🗡️ **Three abilities** | Melee strike, projectile burst and a dash with invincibility frames — each with its own cooldown shown in the HUD. |
-| 👹 **A boss encounter** | Spawns once the arena is cleared, holds the center, has 10 lives, fires volleys of energy balls, and announces itself with a screen shake. |
+| 👹 **A boss encounter** | Spawns once the arena is cleared, hunts you down while firing volleys of energy balls, has 10 lives, and announces itself with a screen shake. |
 | 🎨 **Pixel-art assets, sources included** | `.aseprite` files for the hero, boss, tileset and UI so you can edit instead of redraw. |
 | 🔊 **Sound & music** | Attack and hit effects plus a looping soundtrack, wired up and ready to replace. |
 | ⚡ **Tiny, fast WASM** | Built with TinyGo and squeezed with `wasm-opt`. Data-oriented, near-zero allocations, minimal JS↔WASM crossings. |
