@@ -1,15 +1,5 @@
 module github.com/andygeiss/game-jam-template
 
-go 1.25.4
+go 1.26
 
-require github.com/andygeiss/cloud-native-utils v0.2.12
-
-require (
-	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
-	github.com/klauspost/compress v1.18.1 // indirect
-	github.com/pierrec/lz4/v4 v4.1.22 // indirect
-	github.com/segmentio/kafka-go v0.4.49 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/oauth2 v0.33.0 // indirect
-)
+require golang.org/x/sync v0.22.0

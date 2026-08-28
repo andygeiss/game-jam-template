@@ -1,0 +1,50 @@
+# Copied from baseline-ops/templates/compose.yaml. It lives at /opt/<app>/ on
+# the server, next to .env (what runs) and site.env (this machine's settings).
+#
+# Per app, change exactly two things, and to the same value — the repository
+# name: `name:` and the alias under `networks:`. Every other line is a rule —
+# see runbooks/new-app.md for what each one stops.
+#
+# There is no proxy here. One Caddy for the whole server runs from /opt/caddy
+# and reaches this stack by its alias on the `web` network — runbooks/caddy.md.
+
+name: game-jam-template
+
+services:
+  app:
+    build:
+      context: ./src            # the repository, extracted there by the deploy
+    image: app:${IMAGE_TAG:?IMAGE_TAG must be set in .env}
+    pull_policy: never          # built right here; never reach for a registry
+    restart: unless-stopped
+    stop_grace_period: 15s      # longer than the app's ~10 s shutdown deadline
+    expose: ["8080"]            # no ports: — only Caddy, on the web network, can reach it
+    environment:                # how it is operated; the image owns HOST, PORT, DATABASE_URL
+      ENV: prod
+      LOG_LEVEL: info
+      GOMEMLIMIT: 450MiB
+      CREDENTIALS_DIRECTORY: /run/secrets
+    env_file:                   # settings true of this server and not secret — never in git
+      - path: ./site.env
+        required: false         # an app with none simply has no file
+    volumes:
+      - data:/var/lib/app
+    tmpfs:
+      - /tmp
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    networks:
+      web:
+        aliases: [game-jam-template]        # MUST be the repository name: every project's service is called "app"
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+networks:
+  web:
+    external: true              # the proxy's network; docker network create web, once — runbooks/caddy.md
+
+volumes:
+  data:
