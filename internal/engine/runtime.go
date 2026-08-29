@@ -53,6 +53,14 @@ func LoadSounds(paths ...string) {
 	}
 }
 
+// PauseSound pauses sound index where it is. PlaySound picks it up from
+// there, which is what a pause menu wants; StopSound rewinds instead.
+func PauseSound(index int) {
+	if sounds[index].Truthy() && !sounds[index].Get("paused").Bool() {
+		sounds[index].Call("pause")
+	}
+}
+
 // PlaySound plays sound index unless it is already playing.
 func PlaySound(index int, volume float64, loop bool) {
 	if sounds[index].Truthy() && sounds[index].Get("paused").Bool() {
@@ -60,6 +68,14 @@ func PlaySound(index int, volume float64, loop bool) {
 		sounds[index].Set("volume", volume)
 		sounds[index].Call("play")
 	}
+}
+
+// RenderRect fills a rectangle in screen space. Call it from the UI
+// callback; a menu needs a backdrop, and the engine draws no shapes of its
+// own.
+func RenderRect(x, y, w, h float64, color string) {
+	ctx.Set("fillStyle", color)
+	ctx.Call("fillRect", x, y, w, h)
 }
 
 // RenderText draws text in screen space. Call it from the UI callback.
@@ -108,9 +124,17 @@ func Run(updateScene func(dt float64)) {
 			dt = 0
 		}
 
+		// A pause holds the world where it is: no step, no camera, and no
+		// animation, because renderEntities advances frames by dt too.
+		if Paused {
+			dt = 0
+		}
+
 		updateScene(dt)
-		updateStates(dt)
-		updateCamera(dt)
+		if !Paused {
+			updateStates(dt)
+			updateCamera(dt)
+		}
 
 		ctx.Call("clearRect", 0, 0, CanvasWidth, CanvasHeight)
 

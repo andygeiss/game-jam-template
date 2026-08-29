@@ -17,7 +17,7 @@
 
 ---
 
-Most game jam templates hand you an empty window and wish you luck. This one hands you a **finished game**: a hero, ten monsters, a boss fight, three abilities with cooldowns, hearts, hit sounds, a music loop, camera shake, a game-over screen, a victory screen and a restart key — all rendering in the browser from a 300 KB WASM binary.
+Most game jam templates hand you an empty window and wish you luck. This one hands you a **finished game**: a hero, ten monsters, a boss fight, three abilities with cooldowns, hearts, hit sounds, a music loop, camera shake, a pause menu, a game-over screen, a victory screen and a restart key — all rendering in the browser from a 300 KB WASM binary.
 
 Your job is to make it *yours*: swap the sprites, tweak the numbers, add a mechanic. The boring parts are done.
 
@@ -25,7 +25,7 @@ Your job is to make it *yours*: swap the sprites, tweak the numbers, add a mecha
 
 | | |
 |---|---|
-| 🎮 **A complete game loop** | Idle → fight → boss → win or game over → restart. No placeholder screens. |
+| 🎮 **A complete game loop** | Menu → fight → boss → win or game over → restart. No placeholder screens. |
 | 🗡️ **Three abilities** | Melee strike, projectile burst and a dash with invincibility frames — each with its own cooldown shown in the HUD. |
 | 👹 **A boss encounter** | Spawns once the arena is cleared, hunts you down while firing volleys of energy balls, has 10 lives, and announces itself with a screen shake. |
 | 🎨 **Pixel-art assets, sources included** | `.aseprite` files for the hero, boss, tileset and UI so you can edit instead of redraw. |
@@ -36,7 +36,7 @@ Your job is to make it *yours*: swap the sprites, tweak the numbers, add a mecha
 
 ## 🕹️ Controls
 
-Click the canvas to start. Clear all ten monsters to summon the boss; take its ten lives to win.
+Click the canvas to open the menu, then press `Enter` to start. Clear all ten monsters to summon the boss; take its ten lives to win.
 
 | Key | Action |
 |-----|--------|
@@ -44,8 +44,11 @@ Click the canvas to start. Clear all ten monsters to summon the boss; take its t
 | `Q` | Strike (1 s cooldown) |
 | `E` | Projectile burst (3 s cooldown) |
 | `R` | Dash — 4× speed, invincible (5 s cooldown) |
+| `P` | Menu — pauses the game, resume from it |
 | `F` | Fullscreen |
 | `N` | New game |
+
+The menu is the title screen and the pause screen in one. `W` and `S` move the marker, `Enter` picks the entry: resume, start a new game, or turn the music off. Nothing moves while it is up.
 
 ## 🚀 Quick start
 

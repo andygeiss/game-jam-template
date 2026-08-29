@@ -58,6 +58,11 @@ Square corners. Pixel art has no radius.
 ## Components
 
 - **canvas** — the game. Dark ground, pixelated scaling, fullscreen on `F`.
+- **menu** — drawn inside the canvas on `P` and before the first game. A
+  black backdrop at 72% alpha over the frozen scene, a 320x208 panel of
+  `rgba(18, 20, 26, 0.94)` with a 2 px `rgba(255, 255, 255, 0.25)` border, the
+  chosen entry in yellow and the rest in white at 55% alpha. Square corners,
+  same as everything else.
 
 ## Do's and Don'ts
 

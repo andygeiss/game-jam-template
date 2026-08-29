@@ -428,6 +428,7 @@ func TestHandleKeys(t *testing.T) {
 	}{
 		{"a", &KeyLeft}, {"D", &KeyRight}, {"w", &KeyUp}, {"S", &KeyDown},
 		{"q", &KeyQ}, {"E", &KeyE}, {"r", &KeyR}, {"T", &KeyT}, {"n", &KeyN},
+		{"P", &KeyP}, {"Enter", &KeyEnter},
 		{"1", &Key1}, {"2", &Key2}, {"3", &Key3}, {"4", &Key4},
 	}
 	for _, k := range keys {

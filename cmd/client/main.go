@@ -22,6 +22,13 @@ const (
 	indexImageBoss
 )
 
+// Sounds, in the order LoadSounds receives them.
+const (
+	indexSoundAttack = iota
+	indexSoundHit
+	indexSoundMusic
+)
+
 // Rows of the spritesheet, one animation each.
 const (
 	indexRowIdleRight = iota
@@ -38,6 +45,14 @@ const (
 	indexRowBossAttack
 )
 
+// Menu entries, in the order they are drawn.
+const (
+	menuEntryPlay = iota
+	menuEntryNewGame
+	menuEntryMusic
+	menuEntryCount
+)
+
 // Game-specific state bits, above the engine's own.
 const (
 	stateAction1 = uint64(1 << (iota + 16))
@@ -48,6 +63,13 @@ const (
 	stateInvincible
 	stateProjectile
 	stateBossProjectile
+)
+
+// The three fonts the HUD and the menu draw with.
+const (
+	uiFont      = "16px system-ui, sans-serif"
+	uiFontBig   = "24px system-ui, sans-serif"
+	uiFontSmall = "12px system-ui, sans-serif"
 )
 
 const (
@@ -81,13 +103,17 @@ var (
 	bossLives            int
 	bossSpawned          bool
 	gameOver             bool
+	gameStarted          bool
 	gameWon              bool
 	indexUiPlayer        int
 	indexUiPlayerAction1 int
 	indexUiPlayerAction2 int
 	indexUiPlayerAction3 int
 	indexUiPlayerLives   [playerMaxLives]int
+	menuOpen             bool
+	menuSelected         int
 	monstersKilled       int
+	musicOn              = true
 	playerHurtDt         float64
 	playerLives          int
 )
@@ -127,6 +153,7 @@ func main() {
 	engine.SetWorldSize(worldW, worldH)
 
 	enterScene()
+	openMenu()
 	engine.Run(update)
 
 	// Keep the Go runtime alive; the browser drives the frame loop.
@@ -142,6 +169,24 @@ func update(dt float64) {
 	if engine.KeyN {
 		engine.KeyN = false
 		enterScene()
+		closeMenu()
+	}
+
+	// P opens the menu and closes it again. There is nothing to pause once
+	// the game has ended, so the end screens keep it shut.
+	if engine.KeyP {
+		engine.KeyP = false
+		switch {
+		case menuOpen:
+			closeMenu()
+		case !gameOver && !gameWon:
+			openMenu()
+		}
+	}
+
+	if menuOpen {
+		updateMenu()
+		return
 	}
 
 	if gameOver || gameWon {
@@ -152,7 +197,9 @@ func update(dt float64) {
 		addBoss()
 	}
 
-	engine.PlaySound(2, 0.25, true)
+	if musicOn {
+		engine.PlaySound(indexSoundMusic, 0.25, true)
+	}
 
 	reduceCooldowns(dt)
 	moveMonsters(dt)
@@ -271,6 +318,17 @@ func checkCollision() {
 		} else {
 			killMonster(i)
 		}
+	}
+}
+
+// closeMenu hides the menu and starts time again. The hero gets the controls
+// back unless the game has already ended.
+func closeMenu() {
+	menuOpen = false
+	gameStarted = true
+	engine.Paused = false
+	if !gameOver && !gameWon {
+		engine.InputTarget = 0
 	}
 }
 
@@ -425,7 +483,7 @@ func handleAction1(s uint64) (next uint64) {
 				if ms&stateAggressive == 0 || ms&engine.StateEntityVisible == 0 || !engine.HasCollision(0, i) {
 					continue
 				}
-				engine.PlaySound(1, 1.0, false)
+				engine.PlaySound(indexSoundHit, 1.0, false)
 				if i == bossIndex {
 					damageBoss()
 				} else {
@@ -446,7 +504,7 @@ func handleAction1(s uint64) (next uint64) {
 		s = s&^engine.StateEntityIdle | stateAction1 | stateInvincible
 		engine.EntityFrameOffset[0] = 0
 		engine.EntityFrameTime[0] = 0
-		engine.PlaySound(0, 1.0, false)
+		engine.PlaySound(indexSoundAttack, 1.0, false)
 		action1CooldownDt = action1Cooldown
 	}
 	return s
@@ -460,7 +518,7 @@ func handleAction2(s uint64) (next uint64) {
 	if engine.KeyE && s&stateAction2 == 0 {
 		s |= stateAction2
 		fireAttack2Projectiles()
-		engine.PlaySound(0, 1.0, false)
+		engine.PlaySound(indexSoundAttack, 1.0, false)
 		action2CooldownDt = action2Cooldown
 	}
 	if !engine.KeyE {
@@ -487,7 +545,7 @@ func handleAction3(s uint64) (next uint64) {
 		engine.EntityFrameOffset[0] = 0
 		engine.EntityFrameTime[0] = 0
 		engine.EntitySpeedFactor[0] = 4.0
-		engine.PlaySound(0, 1.0, false)
+		engine.PlaySound(indexSoundAttack, 1.0, false)
 		action3CooldownDt = action3Cooldown
 	}
 	return s
@@ -595,7 +653,7 @@ func moveProjectiles() {
 			if j == i || ms&stateAggressive == 0 || ms&engine.StateEntityVisible == 0 || !engine.HasCollision(i, j) {
 				continue
 			}
-			engine.PlaySound(1, 1.0, false)
+			engine.PlaySound(indexSoundHit, 1.0, false)
 			if j == bossIndex {
 				damageBoss()
 			} else {
@@ -607,6 +665,19 @@ func moveProjectiles() {
 	}
 }
 
+// openMenu freezes the game and shows the menu. The hero's move bits go with
+// it, so a key held down when the menu opens does not keep it walking once
+// the menu closes.
+func openMenu() {
+	menuOpen = true
+	menuSelected = menuEntryPlay
+	engine.Paused = true
+	engine.InputTarget = -1
+	engine.EntityState[0] &^= engine.StateEntityMoveDown | engine.StateEntityMoveLeft |
+		engine.StateEntityMoveRight | engine.StateEntityMoveUp
+	engine.PauseSound(indexSoundMusic)
+}
+
 // reduceCooldowns counts every timer down to zero.
 func reduceCooldowns(dt float64) {
 	for _, t := range []*float64{&action1CooldownDt, &action2CooldownDt, &action3CooldownDt, &bossDamageDt, &playerHurtDt} {
@@ -616,16 +687,69 @@ func reduceCooldowns(dt float64) {
 	}
 }
 
+// renderMenu draws the menu over the frozen game: a dimmed backdrop, a panel,
+// the entries, and the keys that work everywhere else.
+func renderMenu() {
+	const panelW, panelH = 320.0, 208.0
+	const dim = "rgba(255, 255, 255, 0.55)"
+
+	canvasW := float64(engine.CanvasWidth)
+	canvasH := float64(engine.CanvasHeight)
+	centerX := canvasW / 2
+	panelX := centerX - panelW/2
+	panelY := (canvasH - panelH) / 2
+
+	// The border is a slightly larger rectangle behind the panel; the engine
+	// fills rectangles and draws no outlines.
+	engine.RenderRect(0, 0, canvasW, canvasH, "rgba(0, 0, 0, 0.72)")
+	engine.RenderRect(panelX-2, panelY-2, panelW+4, panelH+4, "rgba(255, 255, 255, 0.25)")
+	engine.RenderRect(panelX, panelY, panelW, panelH, "rgba(18, 20, 26, 0.94)")
+
+	title := "Wisp Engine"
+	if gameStarted {
+		title = "Paused"
+	}
+	engine.RenderText(centerX, panelY+36, title, "yellow", uiFontBig, "center")
+
+	entries := [menuEntryCount]string{
+		menuEntryPlay:    "Start game",
+		menuEntryNewGame: "New game",
+		menuEntryMusic:   "Music: on",
+	}
+	if gameStarted {
+		entries[menuEntryPlay] = "Resume"
+	}
+	if !musicOn {
+		entries[menuEntryMusic] = "Music: off"
+	}
+
+	// Entries are left-aligned at a fixed column, so the marker in front of
+	// the highlighted one does not shift the words.
+	entryX := centerX - 72
+	for i, label := range entries {
+		y := panelY + 88 + float64(i)*26
+		if i != menuSelected {
+			engine.RenderText(entryX, y, label, dim, uiFont, "left")
+			continue
+		}
+		engine.RenderText(entryX-20, y, "\u25b6", "yellow", uiFont, "left")
+		engine.RenderText(entryX, y, label, "yellow", uiFont, "left")
+	}
+
+	engine.RenderText(centerX, panelY+panelH-28, "W and S choose, Enter confirms", dim, uiFontSmall, "center")
+	engine.RenderText(centerX, canvasH-18,
+		"WASD move   Q strike   E burst   R dash   P menu   N new game   F fullscreen",
+		dim, uiFontSmall, "center")
+}
+
 // renderUI draws the text layer: the prompt, the counters, the boss bar, and
 // the end screens.
 func renderUI() {
-	const font = "16px system-ui, sans-serif"
-	const bigFont = "24px system-ui, sans-serif"
 	centerX := float64(engine.CanvasWidth / 2)
 	centerY := float64(engine.CanvasHeight / 2)
 
 	if !engine.HasPlayerInput {
-		engine.RenderText(centerX, centerY, "Click to start the game", "white", bigFont, "center")
+		engine.RenderText(centerX, centerY, "Click to start the game", "white", uiFontBig, "center")
 		return
 	}
 
@@ -636,21 +760,23 @@ func renderUI() {
 			alive++
 		}
 	}
-	engine.RenderText(8, 16, fmt.Sprintf("Monsters alive: %d", alive), "white", font, "left")
-	engine.RenderText(8, 32, fmt.Sprintf("Monsters killed: %d", monstersKilled), "yellow", font, "left")
+	engine.RenderText(8, 16, fmt.Sprintf("Monsters alive: %d", alive), "white", uiFont, "left")
+	engine.RenderText(8, 32, fmt.Sprintf("Monsters killed: %d", monstersKilled), "yellow", uiFont, "left")
 
 	if bossSpawned && bossLives > 0 {
 		bar := "[" + strings.Repeat("█", bossLives) + strings.Repeat("░", bossMaxLives-bossLives) + "]"
-		engine.RenderText(centerX, 64, bar, "red", font, "center")
+		engine.RenderText(centerX, 64, bar, "red", uiFont, "center")
 	}
 
 	switch {
+	case menuOpen:
+		renderMenu()
 	case gameWon:
-		engine.RenderText(centerX, centerY, "You win!", "yellow", bigFont, "center")
-		engine.RenderText(centerX, centerY+24, "Press N for a new game", "yellow", font, "center")
+		engine.RenderText(centerX, centerY, "You win!", "yellow", uiFontBig, "center")
+		engine.RenderText(centerX, centerY+24, "Press N for a new game", "yellow", uiFont, "center")
 	case gameOver:
-		engine.RenderText(centerX, centerY, "Game over", "red", bigFont, "center")
-		engine.RenderText(centerX, centerY+24, "Press N for a new game", "red", font, "center")
+		engine.RenderText(centerX, centerY, "Game over", "red", uiFontBig, "center")
+		engine.RenderText(centerX, centerY+24, "Press N for a new game", "red", uiFont, "center")
 	}
 }
 
@@ -684,7 +810,7 @@ func updateBoss(dt float64) {
 		return
 	}
 	fireBossEnergyBalls(8)
-	engine.PlaySound(0, 1.0, false)
+	engine.PlaySound(indexSoundAttack, 1.0, false)
 	bossAttackCooldownDt = bossAttackCooldown
 }
 
@@ -706,6 +832,37 @@ func updateButtons() {
 			engine.EntityAlpha[idx] = 1.0
 		} else {
 			engine.EntityAlpha[idx] = 0.0
+		}
+	}
+}
+
+// updateMenu moves the highlight with W and S and runs the highlighted entry
+// on Enter. Each key is consumed, so one press is one step and the hero does
+// not act on the key that picked an entry.
+func updateMenu() {
+	if engine.KeyUp {
+		engine.KeyUp = false
+		menuSelected = (menuSelected + menuEntryCount - 1) % menuEntryCount
+	}
+	if engine.KeyDown {
+		engine.KeyDown = false
+		menuSelected = (menuSelected + 1) % menuEntryCount
+	}
+	if !engine.KeyEnter {
+		return
+	}
+	engine.KeyEnter = false
+
+	switch menuSelected {
+	case menuEntryPlay:
+		closeMenu()
+	case menuEntryNewGame:
+		enterScene()
+		closeMenu()
+	case menuEntryMusic:
+		musicOn = !musicOn
+		if !musicOn {
+			engine.PauseSound(indexSoundMusic)
 		}
 	}
 }

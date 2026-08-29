@@ -74,8 +74,10 @@ var (
 	Key4              bool
 	KeyDown           bool
 	KeyE              bool
+	KeyEnter          bool
 	KeyLeft           bool
 	KeyN              bool
+	KeyP              bool
 	KeyQ              bool
 	KeyR              bool
 	KeyRight          bool
@@ -84,6 +86,11 @@ var (
 	MouseDown         bool
 	MouseX            float64
 	MouseY            float64
+
+	// Paused stops time. The scene still draws and the game still gets its
+	// update, so it can show a menu and read the keys that leave it, but
+	// nothing moves and no animation advances.
+	Paused bool
 
 	// RowIndexForState maps a state (masked by RowIndexMask) to the
 	// spritesheet row that draws it. The game fills it; the engine only looks
@@ -343,6 +350,10 @@ func handleKeys(key string, isDown bool) {
 		KeyT = isDown
 	case "n", "N":
 		KeyN = isDown
+	case "p", "P":
+		KeyP = isDown
+	case "Enter":
+		KeyEnter = isDown
 	}
 }
 
