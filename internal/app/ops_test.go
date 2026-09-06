@@ -1,7 +1,7 @@
 package app
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,8 +26,13 @@ func TestOpsHandler(t *testing.T) {
 		if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
 			t.Errorf("Content-Type = %q, want application/json", ct)
 		}
-		var body struct{ Status, Version string }
-		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		// Every field names its key: json/v2 matches names case-sensitively,
+		// so an untagged Status would silently stay empty.
+		var body struct {
+			Status  string `json:"status"`
+			Version string `json:"version"`
+		}
+		if err := json.UnmarshalRead(resp.Body, &body); err != nil {
 			t.Fatalf("decoding body: %v", err)
 		}
 		if body.Status != "ok" || body.Version != "v-test" {

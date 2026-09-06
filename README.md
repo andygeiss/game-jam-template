@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://go.dev/"><img alt="Go" src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" /></a>
+  <a href="https://go.dev/"><img alt="Go" src="https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white" /></a>
   <a href="https://tinygo.org/"><img alt="TinyGo" src="https://img.shields.io/badge/TinyGo-WASM-2E2E2E?logo=webassembly&logoColor=white" /></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
   <a href="https://github.com/andygeiss/game-jam-template/generate"><img alt="Use this template" src="https://img.shields.io/badge/Use%20this-template-006edb" /></a>
@@ -52,7 +52,7 @@ The menu is the title screen and the pause screen in one. `W` and `S` move the m
 
 ## 🚀 Quick start
 
-**Prerequisites:** [Go 1.26](https://go.dev/dl/), GNU Make (ships with the macOS Command Line Tools), and — to rebuild the game — [TinyGo 0.41 or newer](https://tinygo.org/getting-started/install/) and [Binaryen](https://github.com/WebAssembly/binaryen) (`wasm-opt`).
+**Prerequisites:** [Go 1.27](https://go.dev/dl/), GNU Make (ships with the macOS Command Line Tools), and — to rebuild the game — [TinyGo 0.42 or newer](https://tinygo.org/getting-started/install/) and [Binaryen](https://github.com/WebAssembly/binaryen) (`wasm-opt`). 0.42 is the first TinyGo that compiles with Go 1.27; 0.41 stops with `requires go version 1.19 through 1.26`.
 
 ```sh
 # 1. Create your own repo from this template, then clone it
@@ -75,7 +75,7 @@ The repository ships a compiled `web/static/game.wasm`, so `make run` works befo
 `brew tap tinygo-org/tools && brew install tinygo binaryen` builds TinyGo from source and needs a current Xcode. Without one, unpack the release tarball and put it on your `PATH`:
 
 ```sh
-curl -fsSL https://github.com/tinygo-org/tinygo/releases/download/v0.41.1/tinygo0.41.1.darwin-arm64.tar.gz | tar -xz -C ~/.local
+curl -fsSL https://github.com/tinygo-org/tinygo/releases/download/v0.42.0/tinygo0.42.0.darwin-arm64.tar.gz | tar -xz -C ~/.local
 export PATH="$HOME/.local/tinygo/bin:$PATH"
 brew install binaryen
 ```
@@ -121,13 +121,14 @@ assets/                 Sprites (.png + .aseprite), sounds and music — the sou
 assets.go               Embeds web/ into the binary
 cmd/client/main.go      The game — entities, abilities, boss, HUD (compiled to WASM)
 cmd/server/             HTTP server: config, version stamp, wiring
+DESIGN.md               The page's design tokens
+docs/                   Logo and documentation
 internal/app/           Routes, middleware, the page handler, the ops listener
 internal/engine/        The Wisp engine: entities, camera, input, animation (entity.go), browser glue (runtime.go)
-web/templates/          The one page
-web/static/             app.css, favicon, game.wasm, js/ (WASM loader), img/ and audio/ (copied by make wasm)
-docs/                   Logo and documentation
-DESIGN.md               The page's design tokens
 Makefile                Every command
+SPEC.md                 The project brief: job, why, guardrails, done
+web/static/             app.css, favicon, game.wasm, js/ (WASM loader), img/ and audio/ (copied by make wasm)
+web/templates/          The one page
 ```
 
 ## 🛠️ Make it yours
@@ -149,6 +150,7 @@ This project follows the [engineering baseline](https://github.com/andygeiss/bas
 Conformance notes, for the reader who checks the boxes:
 
 - `make wasm` is a rule-3 target: the one recurring command the gates cannot run.
+- TinyGo decides which Go the game can be built with, so the Go pin cannot move ahead of it — 0.42 was the first release to accept 1.27. Bump the two together, and rebuild `game.wasm` in that commit.
 - No htmx: the page has no hypermedia interaction, so the script would do nothing.
 - No `DATABASE_URL`, and `/healthz` pings no database: the server holds no state.
 - `web/static/game.wasm` is committed so that `make run`, `make ci` and the container build work without TinyGo. Rebuild it in the commit that changes the game.
