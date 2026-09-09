@@ -23,7 +23,10 @@ loop, an input system and a WASM build instead of to the game.
   Go does. `make wasm` is the check.
 - `web/static/game.wasm` is committed, so `make run`, `make ci` and the
   container build work without TinyGo. Rebuild it in the same commit that
-  changes `cmd/client` or `internal/engine`.
+  changes `cmd/client` or the engine version in `go.mod`.
+- The engine is a dependency, not a directory: `github.com/andygeiss/wisp-engine`.
+  A fix that belongs to the engine goes there and comes back as a version
+  bump, so every game built on it gets the fix rather than this one alone.
 - It stays a template someone reads in an afternoon. A feature that costs the
   reader clarity belongs in a fork, not here.
 

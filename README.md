@@ -17,7 +17,7 @@
 
 ---
 
-Most game jam templates hand you an empty window and wish you luck. This one hands you a **finished game**: a hero, ten monsters, a boss fight, three abilities with cooldowns, hearts, hit sounds, a music loop, camera shake, a pause menu, a game-over screen, a victory screen and a restart key — all rendering in the browser from a 300 KB WASM binary.
+Most game jam templates hand you an empty window and wish you luck. This one hands you a **finished game**: a hero, ten monsters, a boss fight, three abilities with cooldowns, hearts, hit sounds, a music loop, camera shake, a pause menu, a game-over screen, a victory screen and a restart key — all rendering in the browser from a 400 KB WASM binary, with a tuning menu that changes how the game feels while it runs.
 
 Your job is to make it *yours*: swap the sprites, tweak the numbers, add a mechanic. The boring parts are done.
 
@@ -28,6 +28,7 @@ Your job is to make it *yours*: swap the sprites, tweak the numbers, add a mecha
 | 🎮 **A complete game loop** | Menu → fight → boss → win or game over → restart. No placeholder screens. |
 | 🗡️ **Three abilities** | Melee strike, projectile burst and a dash with invincibility frames — each with its own cooldown shown in the HUD. |
 | 👹 **A boss encounter** | Spawns once the arena is cleared, hunts you down while firing volleys of energy balls, has 10 lives, and announces itself with a screen shake. |
+| 🎚️ **Tune it while it plays** | `M` opens the engine's settings menu on the canvas: hit stop, screen shake, camera follow, hit-box margin — 39 knobs. It remembers them across reloads and `C` copies them back out as Go you paste into your source. No rebuild between tries. |
 | 🎨 **Pixel-art assets, sources included** | `.aseprite` files for the hero, boss, tileset and UI so you can edit instead of redraw. |
 | 🔊 **Sound & music** | Attack and hit effects plus a looping soundtrack, wired up and ready to replace. |
 | ⚡ **Tiny, fast WASM** | Built with TinyGo and squeezed with `wasm-opt`. Data-oriented, near-zero allocations, minimal JS↔WASM crossings. |
@@ -45,10 +46,13 @@ Click the canvas to open the menu, then press `Enter` to start. Clear all ten mo
 | `E` | Projectile burst (3 s cooldown) |
 | `R` | Dash — 4× speed, invincible (5 s cooldown) |
 | `P` | Menu — pauses the game, resume from it |
+| `M` | Tuning menu — every feel knob, live, without a rebuild |
 | `F` | Fullscreen |
 | `N` | New game |
 
-The menu is the title screen and the pause screen in one. `W` and `S` move the marker, `Enter` picks the entry: resume, start a new game, or turn the music off. Nothing moves while it is up.
+`M` opens the engine's own menu, which is a different thing: the game keeps running underneath it so a camera or a hit stop can be judged in motion, and it takes the keyboard while it is up so the hero cannot be steered. The frame-time overlay lives in it too, under `Debug` → `ShowMetrics`.
+
+The game's menu is the title screen and the pause screen in one. `W` and `S` move the marker, `Enter` picks the entry: resume, start a new game, or turn the music off. Nothing moves while it is up.
 
 ## 🚀 Quick start
 
@@ -68,7 +72,7 @@ make run
 
 Then open <http://127.0.0.1:8080/>.
 
-The repository ships a compiled `web/static/game.wasm`, so `make run` works before TinyGo is installed. Run `make wasm` after every change to `cmd/client` or `internal/engine`, and commit the new `game.wasm` with it.
+The repository ships a compiled `web/static/game.wasm`, so `make run` works before TinyGo is installed. Run `make wasm` after every change to `cmd/client` or to the engine version in `go.mod`, and commit the new `game.wasm` with it.
 
 ### Installing TinyGo on macOS
 
@@ -123,8 +127,8 @@ cmd/client/main.go      The game — entities, abilities, boss, HUD (compiled to
 cmd/server/             HTTP server: config, version stamp, wiring
 DESIGN.md               The page's design tokens
 docs/                   Logo and documentation
+go.mod                  The engine is a dependency now, not a directory: github.com/andygeiss/wisp-engine
 internal/app/           Routes, middleware, the page handler, the ops listener
-internal/engine/        The Wisp engine: entities, camera, input, animation (entity.go), browser glue (runtime.go)
 Makefile                Every command
 SPEC.md                 The project brief: job, why, guardrails, done
 web/static/             app.css, favicon, game.wasm, js/ (WASM loader), img/ and audio/ (copied by make wasm)
@@ -134,7 +138,7 @@ web/templates/          The one page
 ## 🛠️ Make it yours
 
 1. **Reskin** — open `assets/*.aseprite`, redraw, export to the `.png` next to it, then `make wasm`. Keep the frame layout and everything just works.
-2. **Rebalance** — every cooldown, life count and speed lives in the constants at the top of `cmd/client/main.go`.
+2. **Rebalance** — cooldowns, life counts and speeds live in the constants at the top of `cmd/client/main.go`. How the game *feels* — hit stop, screen shake, camera follow, hit-box margin — lives in the engine's `Settings` instead: press `M`, change it while you play, press `C`, and paste the Go literal off your clipboard into `main`.
 3. **New arena** — edit the tile indices in `enterScene()` or replace `tileset.png`.
 4. **New mechanic** — add a state bit, a handler like `handleAction3`, and a HUD icon. The dash is a good example to copy.
 5. **New enemy** — `addMonsters()` and `addBoss()` show how entities, animations and collision masks fit together.
@@ -149,7 +153,7 @@ This project follows the [engineering baseline](https://github.com/andygeiss/bas
 
 Conformance notes, for the reader who checks the boxes:
 
-- `make wasm` is a rule-3 target: the one recurring command the gates cannot run.
+- `make wasm` is a rule-3 target: the one recurring command the gates cannot run. It ends with a size check against `WASM_MAX_BYTES`, because the README states a size and a claim nothing checks is a memory.
 - TinyGo decides which Go the game can be built with, so the Go pin cannot move ahead of it — 0.42 was the first release to accept 1.27. Bump the two together, and rebuild `game.wasm` in that commit.
 - No htmx: the page has no hypermedia interaction, so the script would do nothing.
 - No `DATABASE_URL`, and `/healthz` pings no database: the server holds no state.
@@ -159,6 +163,8 @@ Conformance notes, for the reader who checks the boxes:
 ## 💡 About Wisp
 
 Wisp is a minimal 2D engine written in Go and built for the single-threaded WASM runtime. It doesn't try to compete with big engines — it's a lean, readable foundation for learning how render loops, input, entity systems and cameras actually work, and for shipping small games fast. If you can read Go, you can read the whole engine in an afternoon.
+
+It used to live in `internal/engine/`. It is now [`github.com/andygeiss/wisp-engine`](https://github.com/andygeiss/wisp-engine), a module this template depends on like any other — so a fix reaches every game built on it, and the engine carries its own tests, its own size gate and its own playground.
 
 ## 📄 License
 

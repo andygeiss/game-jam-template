@@ -5,6 +5,10 @@
 # CLI.
 MAIN = ./cmd/server
 
+# The headline number in the README, as a gate. wasm fails above it, so the
+# claim cannot rot the way "300 KB" did when the engine moved out of the tree.
+WASM_MAX_BYTES = 430000
+
 # Targets are alphabetical, so the default is named rather than first.
 .DEFAULT_GOAL = check
 .PHONY: build check ci clean fmt run test wasm
@@ -19,7 +23,7 @@ build:
 check:
 	test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
 	go vet ./...
-	GOOS=js GOARCH=wasm go vet ./cmd/client/... ./internal/engine/...
+	GOOS=js GOARCH=wasm go vet ./cmd/client/...
 	go fix -diff ./...
 	go run honnef.co/go/tools/cmd/staticcheck@latest ./...
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
@@ -67,3 +71,4 @@ wasm:
 	mkdir -p bin
 	tinygo build -target wasm -opt=z -o bin/game.wasm ./cmd/client
 	wasm-opt -Oz --strip-debug --strip-producers -o web/static/game.wasm bin/game.wasm
+	s=$$(wc -c < web/static/game.wasm | tr -d " "); test "$$s" -le $(WASM_MAX_BYTES) || (echo "game.wasm is $$s bytes, over the $(WASM_MAX_BYTES) the README claims" && exit 1)

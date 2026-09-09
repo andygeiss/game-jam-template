@@ -1,2 +1,4 @@
+github.com/andygeiss/wisp-engine v0.1.0 h1:oDozOW8b4qPAkW3fvKe5lkbLDJSKgJXRt/lozNfv2K8=
+github.com/andygeiss/wisp-engine v0.1.0/go.mod h1:XBia+0zn+4hiUSmM6+3yN/Uz9M9a+W5dkSTB/ctwDIo=
 golang.org/x/sync v0.22.0 h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=
 golang.org/x/sync v0.22.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
