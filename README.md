@@ -4,6 +4,12 @@
 
 <h1 align="center">Wisp Engine – Game Jam Template</h1>
 
+> **Archived 2026-09-11.** This template's successor is
+> [`github.com/andygeiss/game`](https://github.com/andygeiss/game): Heroes of
+> Meri, with the engine, its lab, an art pipeline, a balance simulator and a
+> load test in one tree. Copy that repository and delete its rules instead
+> of starting here. Nothing here changes again.
+
 <p align="center">
   <strong>A complete, playable 2D arena game in Go + TinyGo + WebAssembly — clone it, reskin it, ship it before the jam ends.</strong>
 </p>
